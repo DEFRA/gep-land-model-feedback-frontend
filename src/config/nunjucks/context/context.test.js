@@ -60,7 +60,7 @@ describe('context and cache', () => {
               href: '/about'
             }
           ],
-          serviceName: 'cdp-node-frontend-template',
+          serviceName: 'gep-land-model-feedback-frontend',
           serviceUrl: '/'
         })
       })
@@ -149,7 +149,7 @@ describe('context and cache', () => {
               href: '/about'
             }
           ],
-          serviceName: 'cdp-node-frontend-template',
+          serviceName: 'gep-land-model-feedback-frontend',
           serviceUrl: '/'
         })
       })
