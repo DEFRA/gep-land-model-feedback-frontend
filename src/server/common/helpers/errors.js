@@ -1,6 +1,6 @@
 import { statusCodes } from '../constants/status-codes.js'
 
-function statusCodeMessage(statusCode) {
+function statusCodeMessage (statusCode) {
   switch (statusCode) {
     case statusCodes.notFound:
       return 'Page not found'
@@ -15,7 +15,7 @@ function statusCodeMessage(statusCode) {
   }
 }
 
-export function catchAll(request, h) {
+export function catchAll (request, h) {
   const { response } = request
 
   if (!('isBoom' in response)) {

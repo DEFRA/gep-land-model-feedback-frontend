@@ -1,4 +1,4 @@
-import path from 'path'
+import path from 'node:path'
 import hapi from '@hapi/hapi'
 import Scooter from '@hapi/scooter'
 
@@ -14,9 +14,10 @@ import { sessionCache } from './common/helpers/session-cache/session-cache.js'
 import { getCacheEngine } from './common/helpers/session-cache/cache-engine.js'
 import { secureContext } from '@defra/hapi-secure-context'
 import { contentSecurityPolicy } from './common/helpers/content-security-policy.js'
+import { securityHeaders } from './common/helpers/security-headers.js'
 import { metrics } from '@defra/cdp-metrics'
 
-export async function createServer() {
+export async function createServer () {
   setupProxy()
   const server = hapi.server({
     host: config.get('host'),
@@ -36,9 +37,13 @@ export async function createServer() {
           includeSubDomains: true,
           preload: false
         },
-        xss: 'enabled',
+        // XSS Auditor is removed from modern browsers and can introduce
+        // vulnerabilities when enabled. CSP provides modern XSS protection.
+        // https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html#x-xss-protection
+        xss: 'disabled',
         noSniff: true,
-        xframe: true
+        xframe: true,
+        referrer: 'strict-origin-when-cross-origin'
       }
     },
     router: {
@@ -64,6 +69,7 @@ export async function createServer() {
     nunjucksConfig,
     Scooter,
     contentSecurityPolicy,
+    securityHeaders,
     router // Register all the controllers/routes defined in src/server/router.js
   ])
 

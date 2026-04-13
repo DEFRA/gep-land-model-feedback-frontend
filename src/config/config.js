@@ -206,6 +206,15 @@ export const config = convict({
       default: isDevelopment
     }
   },
+  googleTagManager: {
+    containerId: {
+      doc: 'Google Tag Manager container ID',
+      format: String,
+      nullable: true,
+      default: null,
+      env: 'GTM_CONTAINER_ID'
+    }
+  },
   tracing: {
     header: {
       doc: 'Which header to track',

@@ -1,0 +1,67 @@
+# Based on works distributed under the Apache License 2.0 by the National Digital Twin Programme (see https://github.com/National-Digital-Twin/ospo-resources).
+#
+# This workflow is triggered when a pull request is merged into the main branch and automatically
+# opens a PR to merge main back into develop. If a GitHub App with ruleset bypass permissions
+# becomes available, this can be simplified to a direct merge via the API.
+name: Auto Back-merge Main to Develop
+
+on:
+  pull_request:
+    types:
+      - closed
+    branches:
+      - main
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  back-merge:
+    name: Back-merge Main to Develop
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Create back-merge PR and Generate Summary
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        with:
+          script: |
+            const { number: prNumber, html_url: prUrl } = context.payload.pull_request
+            const mergedBy = context.payload.sender.login
+
+            const summary = (heading, body) => core.summary.addRaw(
+            `## ${heading}\n\n${body}\n\n` +
+            `| Detail | Value |\n|---|---|\n` +
+            `| Merged by | @${mergedBy} |\n` +
+            `| Triggering PR | [#${prNumber}](${prUrl}) |\n`
+            ).write()
+
+            try {
+              const { data: pr } = await github.rest.pulls.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                head: 'main',
+                base: 'develop',
+                title: 'ci(back-merge): merge main into develop',
+                body: `Automated back-merge of main into develop after PR #${prNumber}.`
+              })
+
+              await summary(
+                'Back-merge: PR created',
+                `Created PR [#${pr.number}](${pr.html_url}) to merge main into develop.`
+              )
+            } catch (error) {
+              const errorMessage = error.message || String(error)
+
+              await summary(
+                'Back-merge: failed',
+                `Could not create back-merge PR after PR #${prNumber}.\n\n` +
+                `**Error:** \`${errorMessage}\``
+              )
+
+              core.setFailed(`Back-merge failed: ${errorMessage}`)
+            }

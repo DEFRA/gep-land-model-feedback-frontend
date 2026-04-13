@@ -1,0 +1,30 @@
+# Repository branch name rule:
+# ^(?:develop|main|feature|hotfix|bugfix|release|dependabot|gh-pages|sync|release.*)(?:/.*)?$
+
+Documentation:
+  - changed-files:
+    - any-glob-to-any-file: ['**/*.md']
+
+Feature:
+  - head-branch: ['^feature/']
+
+Fix:
+  - head-branch: ['^bugfix/', '^hotfix/']
+
+Refactor:
+  - head-branch: ['^refactor/']
+
+Chore:
+  - head-branch: ['^chore/']
+
+Release:
+  - head-branch: ['^release/']
+
+Dependencies:
+  - head-branch: ['^dependabot/']
+
+Develop:
+  - base-branch: ['^develop$']
+
+Production:
+  - base-branch: ['^main$']

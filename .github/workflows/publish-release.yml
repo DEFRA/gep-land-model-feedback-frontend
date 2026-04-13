@@ -1,0 +1,142 @@
+name: Publish Release
+
+on:
+  push:
+    branches:
+      - "release/**"
+
+concurrency:
+  group: publish-release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+permissions:
+  id-token: write
+  contents: write
+  pull-requests: write
+
+env:
+  AWS_REGION: eu-west-2
+  AWS_ACCOUNT_ID: "094954420758"
+
+jobs:
+  build:
+    name: CDP-build-release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate branch name
+        run: |
+          if ! echo "${{ github.ref_name }}" | grep -qE '^release/[0-9]+\.[0-9]+$'; then
+            echo "::error::Branch must be named release/X.Y (e.g. release/0.1)"
+            exit 1
+          fi
+
+      - name: Check out code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Check minor is not used by develop
+        run: |
+          MINOR=$(echo "${{ github.ref_name }}" | sed 's|release/||')
+          DEV_TAGS=$(git tag --merged origin/develop | grep -E "^${MINOR}\.[1-9][0-9]*$" || true)
+          if [ -n "$DEV_TAGS" ]; then
+            LATEST_DEV=$(git tag --merged origin/develop --sort=-v:refname | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | head -1 || true)
+            NEXT=$(echo "$LATEST_DEV" | awk -F. '{printf "%d.%d", $1, $2+1}')
+            echo "::error::Minor ${MINOR} has develop builds. Use release/${NEXT} instead."
+            exit 1
+          fi
+
+      - name: Calculate version
+        id: version
+        run: |
+          MINOR=$(echo "${{ github.ref_name }}" | sed 's|release/||')
+          LATEST=$(git tag --sort=-v:refname \
+            | grep -E "^${MINOR}\.[0-9]+$" | head -1 || true)
+          if [ -z "$LATEST" ]; then
+            VERSION="${MINOR}.0"
+          else
+            PATCH=$(echo "$LATEST" | awk -F. '{print $3}')
+            VERSION="${MINOR}.$((PATCH + 1))"
+          fi
+          echo "value=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Calculated version: ${VERSION}"
+
+      - name: Seed next develop minor
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          NEXT_MINOR=$(echo "${{ steps.version.outputs.value }}" | awk -F. '{printf "%d.%d.0", $1, $2+1}')
+          if git rev-parse "$NEXT_MINOR" >/dev/null 2>&1; then
+            echo "Seed tag $NEXT_MINOR already exists, skipping"
+          else
+            DEVELOP_SHA=$(gh api repos/${{ github.repository }}/git/refs/heads/develop --jq '.object.sha')
+            gh api repos/${{ github.repository }}/git/refs -X POST \
+              -f ref="refs/tags/$NEXT_MINOR" \
+              -f sha="$DEVELOP_SHA"
+            echo "Created seed tag $NEXT_MINOR on develop"
+          fi
+
+      - name: Test code and Create Test Coverage Reports
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: |
+          npm ci
+          npm run build:frontend
+          npm run lint
+          npm test
+
+      - name: Update package.json version
+        run: npm version "${{ steps.version.outputs.value }}" --no-git-tag-version
+
+      # [skip ci] in the commit message prevents this push from re-triggering the workflow
+      - name: Commit version bump
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json
+          git commit -m "ci(release): bump version to ${{ steps.version.outputs.value }} [skip ci]"
+          git push
+
+      - name: Create and push tag
+        run: |
+          git tag "${{ steps.version.outputs.value }}"
+          git push origin "${{ steps.version.outputs.value }}"
+
+      - name: Build and Publish
+        uses: DEFRA/cdp-build-action/build@main
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          version: ${{ steps.version.outputs.value }}
+
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarqube-scan-action@299e4b793aaa83bf2aba7c9c14bedbb485688ec4 # v7.1.0
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+      - name: Create release PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION_MINOR=$(echo "${{ steps.version.outputs.value }}" | awk -F. '{print $1"."$2}')
+          EXISTING=$(gh pr list --base main --head "${{ github.ref_name }}" --json number --jq '.[0].number')
+          if [ -n "$EXISTING" ]; then
+            echo "PR #${EXISTING} already exists for ${{ github.ref_name }} -> main"
+            exit 0
+          fi
+          PREV_TAG=$(git tag --merged origin/main --sort=-v:refname | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | head -1 || true)
+          NOTES_ARGS="-f tag_name=${{ steps.version.outputs.value }}"
+          if [ -n "$PREV_TAG" ]; then
+            NOTES_ARGS="$NOTES_ARGS -f previous_tag_name=$PREV_TAG"
+          fi
+          gh api repos/${{ github.repository }}/releases/generate-notes \
+            -X POST $NOTES_ARGS --jq '.body' > "$RUNNER_TEMP/release-notes.md"
+          gh pr create \
+            --base main \
+            --head "${{ github.ref_name }}" \
+            --title "release: ${VERSION_MINOR}" \
+            --body-file "$RUNNER_TEMP/release-notes.md" \
+            --draft
