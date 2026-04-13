@@ -1,6 +1,6 @@
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
-import path from 'path'
+import path from 'node:path'
 import CopyPlugin from 'copy-webpack-plugin'
 import { CleanWebpackPlugin } from 'clean-webpack-plugin'
 import TerserPlugin from 'terser-webpack-plugin'
@@ -163,17 +163,11 @@ export default {
       patterns: [
         {
           from: path.join(govukFrontendPath, 'dist/govuk/assets'),
-          to: 'assets',
-          globOptions: {
-            ignore: [
-              path.join(govukFrontendPath, 'dist/govuk/assets/rebrand'),
-              path.join(govukFrontendPath, 'dist/govuk/assets/images')
-            ]
-          }
+          to: 'assets'
         },
         {
-          from: path.join(govukFrontendPath, 'dist/govuk/assets/rebrand'),
-          to: 'assets'
+          from: path.join(dirname, 'src/client/images'),
+          to: 'images'
         }
       ]
     })

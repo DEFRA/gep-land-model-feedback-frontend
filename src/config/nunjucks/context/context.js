@@ -14,14 +14,28 @@ const manifestPath = path.join(
 
 let webpackManifest
 
-export function context(request) {
+function parseAnalyticsConsent (cookieValue) {
+  try {
+    return JSON.parse(decodeURIComponent(cookieValue || '')).analytics === true
+  } catch {
+    return false
+  }
+}
+
+export function context (request) {
   if (!webpackManifest) {
     try {
       webpackManifest = JSON.parse(readFileSync(manifestPath, 'utf-8'))
     } catch (error) {
-      logger.error(`Webpack ${path.basename(manifestPath)} not found`)
+      logger.error(error, `Webpack ${path.basename(manifestPath)} not found`)
     }
   }
+
+  const cookieConsentSet = Boolean(request.state?.defra_cookies_policy_set)
+  const cookieAction = request.query?.cookieAction || null
+  const hasAnalyticsConsent = parseAnalyticsConsent(
+    request.state?.defra_cookies_policy
+  )
 
   return {
     assetPath: `${assetPath}/assets`,
@@ -29,7 +43,13 @@ export function context(request) {
     serviceUrl: '/',
     breadcrumbs: [],
     navigation: buildNavigation(request),
-    getAssetPath(asset) {
+    cspNonce: request.plugins?.blankie?.nonces?.script ?? null,
+    gtmContainerId: config.get('googleTagManager.containerId'),
+    cookieConsentSet,
+    cookieAction,
+    hasAnalyticsConsent,
+    currentUrl: request.path,
+    getAssetPath (asset) {
       const webpackAssetPath = webpackManifest?.[asset]
       return `${assetPath}/${webpackAssetPath ?? asset}`
     }

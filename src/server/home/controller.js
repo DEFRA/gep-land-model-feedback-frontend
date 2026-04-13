@@ -3,10 +3,11 @@
  * Provided as an example, remove or modify as required.
  */
 export const homeController = {
-  handler(_request, h) {
+  handler (_request, h) {
     return h.view('home/index', {
       pageTitle: 'Home',
-      heading: 'Home'
+      heading: 'Placeholder content',
+      description: 'Placeholder service purpose text'
     })
   }
 }

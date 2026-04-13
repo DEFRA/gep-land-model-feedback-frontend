@@ -1,0 +1,16 @@
+<nav class="defra-service-navigation" aria-label="Main navigation" data-module="defra-service-navigation">
+  <div class="defra-service-navigation__inner">
+    <button type="button" class="defra-service-navigation__toggle js-service-navigation-toggle" aria-controls="main-navigation-list" aria-expanded="false" hidden>
+      Menu
+    </button>
+    <ul class="defra-service-navigation__list" id="main-navigation-list">
+      {% for item in navigation %}
+        <li class="defra-service-navigation__item">
+          <a class="defra-service-navigation__link"{% if item.current %} aria-current="page"{% endif %} href="{{ item.href }}">
+            {{ item.text }}
+          </a>
+        </li>
+      {% endfor %}
+    </ul>
+  </div>
+</nav>

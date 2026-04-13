@@ -1,4 +1,4 @@
-import path from 'path'
+import path from 'node:path'
 import nunjucks from 'nunjucks'
 import hapiVision from '@hapi/vision'
 import { fileURLToPath } from 'node:url'
@@ -30,7 +30,7 @@ export const nunjucksConfig = {
   options: {
     engines: {
       njk: {
-        compile(src, options) {
+        compile (src, options) {
           const template = nunjucks.compile(src, options.environment)
           return (ctx) => template.render(ctx)
         }

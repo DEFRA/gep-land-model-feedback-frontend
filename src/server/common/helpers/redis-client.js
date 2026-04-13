@@ -8,7 +8,7 @@ import { createLogger } from './logging/logger.js'
  * Local development - 1 Redis instance
  * Environments - Elasticache / Redis Cluster with username and password
  */
-export function buildRedisClient(redisConfig) {
+export function buildRedisClient (redisConfig) {
   const logger = createLogger()
   const port = 6379
   const db = 0

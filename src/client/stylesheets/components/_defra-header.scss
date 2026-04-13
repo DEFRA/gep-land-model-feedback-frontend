@@ -1,0 +1,185 @@
+@use '../variables/colours' as *;
+
+// ===== Header with logo + search =====
+
+.defra-header {
+  background-color: $govuk-white;
+}
+
+.defra-header__inner {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 24px;
+  padding-top: 12px;
+  padding-bottom: 12px;
+  max-width: 960px;
+  margin: 0 auto;
+  padding-left: 15px;
+  padding-right: 15px;
+}
+
+.defra-header__brand-group {
+  display: contents;
+}
+
+.defra-header__logo {
+  height: 60px;
+  width: auto;
+}
+
+.defra-header__service-name {
+  justify-self: center;
+  font-family: Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-size: 22px;
+  font-weight: 700;
+  color: $defra-green-aa;
+  line-height: 1.2;
+  text-decoration: none;
+
+  // Explicit link states to override govuk-frontend global `a{color:#1d70b8}`
+  &:link {
+    color: $defra-green-aa;
+  }
+
+  &:visited {
+    color: $defra-green-aa;
+  }
+
+  &:hover {
+    color: $defra-green-aa;
+    text-decoration: underline;
+    text-decoration-thickness: 3px;
+    text-underline-offset: 0.15em;
+  }
+
+  &:focus {
+    outline: 3px solid $govuk-yellow;
+    outline-offset: 2px;
+    background-color: $govuk-yellow;
+    box-shadow: none;
+    text-decoration: none;
+  }
+}
+
+// ===== Header search =====
+
+.defra-header-search {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+}
+
+.defra-header-search--nhs {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid $govuk-black;
+  background-color: $govuk-white;
+}
+
+// Search input wrapper - ensures consistent dimensions during JS initialisation
+// The wrapper has fixed dimensions so the container doesn't resize when
+// accessible-autocomplete replaces the input element
+.defra-header-search__wrapper {
+  width: 220px;
+  height: 40px;
+  position: relative;
+}
+
+.defra-header-search__label {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 16px;
+  font-family: Arial, sans-serif;
+  color: #0b0c0c; // GOV.UK black for better contrast
+  pointer-events: none;
+  z-index: 1;
+}
+
+// Hide label when input has focus or contains text
+.defra-header-search__wrapper:focus-within .defra-header-search__label,
+.defra-header-search__label--hidden {
+  // Use clip to hide but keep accessible
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
+.defra-header-search__input {
+  border: 0;
+  box-shadow: none;
+  width: 100%;
+  height: 100%;
+  padding: 8px 10px;
+  font-size: 16px;
+  box-sizing: border-box;
+}
+
+.defra-header-search__button {
+  border: 0;
+  border-left: 1px solid $defra-green;
+  background-color: $defra-green;
+  padding: 0;
+  width: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+
+  &:hover {
+    background-color: $defra-green;
+  }
+}
+
+.defra-header-search__icon {
+  width: 16px;
+  height: 16px;
+  stroke: $govuk-white;
+  fill: none;
+}
+
+.defra-header-search--nhs:focus-within {
+  outline: 3px solid #ffbf47;
+  outline-offset: 1px;
+}
+
+// Responsive header styles
+@media (max-width: 768px) {
+  .defra-header__inner {
+    grid-template-columns: auto 1fr;
+    gap: 12px;
+  }
+
+  .defra-header-search,
+  .defra-header-search--nhs {
+    display: none;
+  }
+
+  .defra-header__service-name {
+    font-size: 18px;
+    justify-self: start;
+  }
+
+  .defra-header__logo {
+    height: 45px;
+  }
+}
+
+@media (max-width: 480px) {
+  .defra-header__service-name {
+    font-size: 16px;
+  }
+
+  .defra-header__logo {
+    height: 40px;
+  }
+}

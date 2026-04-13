@@ -1,0 +1,108 @@
+version: 2
+
+updates:
+  # Update npm packages
+  - package-ecosystem: npm
+    directory: /
+    target-branch: develop
+    open-pull-requests-limit: 10
+
+    # Minimum age before suggesting updates (supply chain security).
+    # Security updates bypass the cooldown.
+    cooldown:
+      default-days: 7
+      semver-major-days: 14
+      semver-minor-days: 7
+      semver-patch-days: 3
+
+    # Group packages into shared PR
+    groups:
+      dev-tools:
+        patterns:
+          - '@babel/*'
+          - '@vitest/*'
+          - 'autoprefixer'
+          - 'babel-loader'
+          - 'cheerio'
+          - 'clean-webpack-plugin'
+          - 'copy-webpack-plugin'
+          - 'cssnano'
+          - 'cssnano-*'
+          - 'husky'
+          - 'nodemon'
+          - 'npm-run-all'
+          - 'postcss-*'
+          - 'sass-*'
+          - 'source-map-loader'
+          - 'terser-webpack-plugin'
+          - 'vitest'
+          - 'vitest-*'
+          - 'webpack'
+          - 'webpack-*'
+
+      lint:
+        patterns:
+          - 'eslint'
+          - 'eslint-*'
+          - 'neostandard'
+          - 'stylelint'
+          - 'stylelint-*'
+
+      logging:
+        patterns:
+          - '*-pino'
+          - '*-pino-format'
+          - 'pino'
+          - 'pino-*'
+
+      defra:
+        patterns:
+          - '@defra/*'
+
+      server:
+        patterns:
+          - '@hapi/*'
+          - 'blankie'
+          - 'convict'
+          - 'convict-*'
+          - 'date-fns'
+          - 'global-agent'
+          - 'hapi-*'
+          - 'ioredis'
+          - 'lodash'
+          - 'node-fetch'
+          - 'nunjucks'
+          - 'semver'
+          - 'undici'
+
+    ignore:
+      # eslint 10 not yet supported by neostandard
+      - dependency-name: 'eslint'
+        versions: ['>=10']
+
+      # stylelint 17 not yet supported by stylelint-config-gds
+      - dependency-name: 'stylelint'
+        versions: ['>=17']
+
+    # Schedule run every Monday, local time
+    schedule:
+      interval: weekly
+      time: '10:30'
+      timezone: 'Europe/London'
+
+    versioning-strategy: increase
+
+    allow:
+      # Include direct package.json updates
+      - dependency-type: direct
+
+  # Update GitHub Actions
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: develop
+
+    # Schedule run every Monday, local time
+    schedule:
+      interval: weekly
+      time: '10:30'
+      timezone: 'Europe/London'

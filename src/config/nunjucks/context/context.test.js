@@ -23,7 +23,7 @@ describe('context and cache', () => {
   })
 
   describe('#context', () => {
-    const mockRequest = { path: '/' }
+    const mockRequest = { path: '/', state: {}, query: {} }
 
     describe('When webpack manifest file read succeeds', () => {
       let contextImport
@@ -60,6 +60,12 @@ describe('context and cache', () => {
               href: '/about'
             }
           ],
+          cspNonce: null,
+          gtmContainerId: null,
+          cookieConsentSet: false,
+          cookieAction: null,
+          hasAnalyticsConsent: false,
+          currentUrl: '/',
           serviceName: 'gep-land-model-feedback-frontend',
           serviceUrl: '/'
         })
@@ -97,6 +103,7 @@ describe('context and cache', () => {
 
       test('Should log that the Webpack Manifest file is not available', () => {
         expect(mockLoggerError).toHaveBeenCalledWith(
+          expect.any(Error),
           'Webpack assets-manifest.json not found'
         )
       })
@@ -104,7 +111,7 @@ describe('context and cache', () => {
   })
 
   describe('#context cache', () => {
-    const mockRequest = { path: '/' }
+    const mockRequest = { path: '/', state: {}, query: {} }
     let contextResult
 
     describe('Webpack manifest file cache', () => {
@@ -149,6 +156,12 @@ describe('context and cache', () => {
               href: '/about'
             }
           ],
+          cspNonce: null,
+          gtmContainerId: null,
+          cookieConsentSet: false,
+          cookieAction: null,
+          hasAnalyticsConsent: false,
+          currentUrl: '/',
           serviceName: 'gep-land-model-feedback-frontend',
           serviceUrl: '/'
         })
