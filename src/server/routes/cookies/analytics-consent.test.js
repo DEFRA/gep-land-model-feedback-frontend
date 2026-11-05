@@ -1,3 +1,4 @@
+import { mockAuthCredentials } from '#/server/common/test-helpers/auth.js'
 import { runInNewContext } from 'node:vm'
 import { load } from 'cheerio'
 import { vi } from 'vitest'
@@ -23,7 +24,7 @@ describe.each([undefined, '', 'GTM-TEST123'])('analytics configuration %s', (key
   })
 
   test('only asks for optional cookies on other pages when GTM is configured', async () => {
-    const response = await server.inject('/')
+    const response = await server.inject({ url: '/', auth: mockAuthCredentials })
     expect(response.statusCode).toBe(200)
     const $ = load(response.payload)
     expect($('.js-cookies-container')).toHaveLength(key ? 1 : 0)
@@ -32,7 +33,7 @@ describe.each([undefined, '', 'GTM-TEST123'])('analytics configuration %s', (key
   })
 
   test('always hides the banner on the cookies page and gates optional controls', async () => {
-    const response = await server.inject('/cookies')
+    const response = await server.inject({ url: '/cookies', auth: mockAuthCredentials })
     expect(response.statusCode).toBe(200)
     const $ = load(response.payload)
     expect($('.js-cookies-container')).toHaveLength(0)
@@ -45,7 +46,7 @@ describe.each([undefined, '', 'GTM-TEST123'])('analytics configuration %s', (key
   })
 
   test.each([true, false])('loads GTM only with configuration and confirmed consent (%s)', async (analytics) => {
-    const response = await server.inject({ url: '/', headers: { cookie: policy(analytics) } })
+    const response = await server.inject({ auth: mockAuthCredentials, url: '/', headers: { cookie: policy(analytics) } })
     expect(response.statusCode).toBe(200)
     const $ = load(response.payload)
     const tracking = $('script').filter((_, script) => $(script).text().includes('gtm.start'))
@@ -60,10 +61,11 @@ describe.each([undefined, '', 'GTM-TEST123'])('analytics configuration %s', (key
 
   test('native consent submissions preserve the original query string', async () => {
     if (!key) return
-    const response = await server.inject('/?q=water&sort=titleAsc')
+    const response = await server.inject({ url: '/?q=water&sort=titleAsc', auth: mockAuthCredentials })
     const $ = load(response.payload)
     expect($('input[name="returnUrl"]').val()).toBe('/?q=water&sort=titleAsc')
     const result = await server.inject({
+      auth: mockAuthCredentials,
       method: 'POST',
       url: '/cookies',
       headers: { cookie: response.headers['set-cookie'].map((value) => value.split(';')[0]).join('; ') },
@@ -74,7 +76,7 @@ describe.each([undefined, '', 'GTM-TEST123'])('analytics configuration %s', (key
   })
 
   test('queues Consent Mode defaults before any GTM load', async () => {
-    const response = await server.inject({ url: '/', headers: { cookie: policy(true) } })
+    const response = await server.inject({ auth: mockAuthCredentials, url: '/', headers: { cookie: policy(true) } })
     const $ = load(response.payload)
     const script = $('script').filter((_, element) => $(element).text().includes("'consent', 'default'"))
     expect(script).toHaveLength(key ? 1 : 0)
@@ -91,14 +93,14 @@ describe.each([undefined, '', 'GTM-TEST123'])('analytics configuration %s', (key
   })
 
   test('does not load tracking for an unconfirmed preference', async () => {
-    const response = await server.inject({ url: '/', headers: { cookie: policy(true, false) } })
+    const response = await server.inject({ auth: mockAuthCredentials, url: '/', headers: { cookie: policy(true, false) } })
     expect(response.statusCode).toBe(200)
     expect(response.payload).not.toContain('gtm.start')
     expect(load(response.payload)('.js-cookies-container')).toHaveLength(key ? 1 : 0)
   })
 
   test.each(['invalid-json', Buffer.from('null').toString('base64'), Buffer.from('{"essential":true,"confirmed":true,"analytics":"true"}').toString('base64')])('safely resets invalid consent %s', async (value) => {
-    const response = await server.inject({ url: '/', headers: { cookie: `${cookieName}=${value}` } })
+    const response = await server.inject({ auth: mockAuthCredentials, url: '/', headers: { cookie: `${cookieName}=${value}` } })
     expect(response.statusCode).toBe(200)
     expect(response.payload).not.toContain('gtm.start')
     const cookie = response.headers['set-cookie'].find((value) => value.startsWith(`${cookieName}=`))

@@ -1,3 +1,4 @@
+import { mockAuthCredentials } from '#/server/common/test-helpers/auth.js'
 import { createServer } from '#/server/server.js'
 import { statusCodes } from '#/server/common/constants/status-codes.js'
 
@@ -15,6 +16,7 @@ describe('#homeController', () => {
 
   test('Should provide expected response', async () => {
     const { result, statusCode } = await server.inject({
+      auth: mockAuthCredentials,
       method: 'GET',
       url: '/'
     })

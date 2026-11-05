@@ -25,9 +25,15 @@ export function context (request) {
     }
   }
 
+  const credentials = request.auth?.credentials
+  const user = credentials
+    ? { id: credentials.id, displayName: credentials.displayName, email: credentials.email }
+    : null
+
   return {
+    user,
     assetPath: `${assetPath}/assets`,
-    serviceName: config.get('serviceName'),
+    serviceName: config.get('serviceDisplayName'),
     serviceUrl: '/',
     isDevelopment: !config.get('isProduction') && !config.get('isTest'),
     cookieName: config.get('cookieConsent.name'),

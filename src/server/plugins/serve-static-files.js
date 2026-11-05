@@ -9,6 +9,7 @@ export const serveStaticFiles = {
         {
           options: {
             auth: false,
+            tags: ['asset'],
             cache: {
               expiresIn: config.get('staticCacheTimeout'),
               privacy: 'private'
@@ -23,6 +24,7 @@ export const serveStaticFiles = {
         {
           options: {
             auth: false,
+            tags: ['asset'],
             cache: {
               expiresIn: config.get('staticCacheTimeout'),
               privacy: 'private'

@@ -1,9 +1,11 @@
 @use '../variables/colours' as *;
+@use 'govuk-frontend' as *;
 
 // ===== Header with logo + search =====
 
 .defra-header {
-  background-color: $govuk-white;
+  background-color: govuk-colour("white");
+  border-bottom: 3px solid $defra-green;
 }
 
 .defra-header__inner {
@@ -13,8 +15,6 @@
   gap: 24px;
   padding-top: 12px;
   padding-bottom: 12px;
-  max-width: 960px;
-  margin: 0 auto;
   padding-left: 15px;
   padding-right: 15px;
 }
@@ -35,32 +35,55 @@
   -moz-osx-font-smoothing: grayscale;
   font-size: 22px;
   font-weight: 700;
-  color: $defra-green-aa;
+  color: govuk-colour("black");
   line-height: 1.2;
   text-decoration: none;
 
-  // Explicit link states to override govuk-frontend global `a{color:#1d70b8}`
   &:link {
-    color: $defra-green-aa;
+    color: govuk-colour("black");
   }
 
   &:visited {
-    color: $defra-green-aa;
+    color: govuk-colour("black");
   }
 
   &:hover {
-    color: $defra-green-aa;
+    color: govuk-colour("black");
     text-decoration: underline;
     text-decoration-thickness: 3px;
     text-underline-offset: 0.15em;
   }
 
   &:focus {
-    outline: 3px solid $govuk-yellow;
+    outline: 3px solid govuk-colour("yellow");
     outline-offset: 2px;
-    background-color: $govuk-yellow;
+    background-color: govuk-colour("yellow");
     box-shadow: none;
     text-decoration: none;
+  }
+}
+
+// ===== Header auth =====
+
+.defra-header__auth {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-self: end;
+  white-space: nowrap;
+}
+
+.defra-header__user-name {
+  @include govuk-font($size: 16);
+  color: govuk-colour("black");
+}
+
+.defra-header__sign-out {
+  padding-left: 12px;
+  border-left: 1px solid govuk-colour("black");
+
+  &:focus {
+    border-left-color: transparent;
   }
 }
 
@@ -76,8 +99,8 @@
 .defra-header-search--nhs {
   display: inline-flex;
   align-items: stretch;
-  border: 1px solid $govuk-black;
-  background-color: $govuk-white;
+  border: 1px solid govuk-colour("black");
+  background-color: govuk-colour("white");
 }
 
 // Search input wrapper - ensures consistent dimensions during JS initialisation
@@ -104,7 +127,7 @@
 // Hide label when input has focus or contains text
 .defra-header-search__wrapper:focus-within .defra-header-search__label,
 .defra-header-search__label--hidden {
-  // Hide visually while keeping the label accessible.
+  // Use clip-path to hide but keep accessible
   clip-path: inset(50%);
   height: 1px;
   overflow: hidden;
@@ -142,7 +165,7 @@
 .defra-header-search__icon {
   width: 16px;
   height: 16px;
-  stroke: $govuk-white;
+  stroke: govuk-colour("white");
   fill: none;
 }
 
@@ -154,7 +177,7 @@
 // Responsive header styles
 @media (max-width: 768px) {
   .defra-header__inner {
-    grid-template-columns: auto 1fr;
+    grid-template-columns: auto 1fr auto;
     gap: 12px;
   }
 
@@ -170,6 +193,15 @@
 
   .defra-header__logo {
     height: 45px;
+  }
+
+  .defra-header__user-name {
+    display: none;
+  }
+
+  .defra-header__sign-out {
+    border-left: 0;
+    padding-left: 0;
   }
 }
 

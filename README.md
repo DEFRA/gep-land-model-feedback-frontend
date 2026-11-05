@@ -19,6 +19,7 @@ Core delivery platform Node.js Frontend Template.
   - [Linting and Formatting](#linting-and-formatting)
   - [Testing](#testing)
   - [CI/CD](#cicd)
+- [Authentication](#authentication)
 - [Docker](#docker)
   - [Development image](#development-image)
   - [Production image](#production-image)
@@ -46,8 +47,7 @@ nvm use
 
 ## Server-side Caching
 
-We use Catbox for server-side caching. By default the service will use CatboxRedis when deployed and CatboxMemory for
-local development.
+We use Catbox for server-side caching. The service uses CatboxRedis when deployed and during local development, matching the viewer. Tests use CatboxMemory.
 You can override the default behaviour by setting the `SESSION_CACHE_ENGINE` environment variable to either `redis` or
 `memory`.
 
@@ -60,8 +60,7 @@ Redis is an in-memory key-value store. Every instance of a service has access to
 to how services might have a database (or MongoDB). All frontend services are given access to a namespaced prefixed that
 matches the service name. e.g. `my-service` will have access to everything in Redis that is prefixed with `my-service`.
 
-If your service does not require a session cache to be shared between instances or if you don't require Redis, you can
-disable setting `SESSION_CACHE_ENGINE=false` or changing the default value in `src/config/index.js`.
+Authentication requires a session cache. Use `SESSION_CACHE_ENGINE=memory` only for local runs without Redis; sessions will be lost on restart.
 
 ## Proxy
 
@@ -79,11 +78,14 @@ No additional proxy configuration is required in the service.
 
 ### Setup
 
-Install application dependencies:
+Start the local authentication and session services, then install application dependencies:
 
 ```bash
-npm install
+docker compose up -d redis keycloak
+npm ci
 ```
+
+Copy `.env.example` to `.env` if you need to override local defaults.
 
 ### Git hooks
 
@@ -111,6 +113,8 @@ To run the application in `development` mode run:
 ```bash
 npm run dev
 ```
+
+Open `http://localhost:3004` and sign in with the local Keycloak user `dev` / `dev`.
 
 Vite serves frontend assets through Hapi in development and writes hashed production assets to `.public` with `npm run build:frontend`.
 
@@ -189,6 +193,66 @@ When a PR is merged into `main`, the [Auto Back-merge](.github/workflows/auto-ba
 
 Hotfixes are handled by the [Publish Hot Fix](.github/workflows/publish-hotfix.yml) workflow, triggered manually from a hotfix branch. Each trigger builds a new patch version (e.g. `0.2.1`, `0.2.2`) so fixes can be re-tested before merging. Deploy hotfix artifacts via the CDP portal.
 
+## Authentication
+
+The service uses the same OIDC authorization-code flow with PKCE as
+[`gep-land-model-viewer-frontend`](https://github.com/DEFRA/gep-land-model-viewer-frontend/tree/ac0c7b3441299715149d174e8a8ef21aec9fa349).
+The auth controllers, OIDC plugins, Cognito/local JWT assertion providers, session
+helpers, URL helpers and logging are copied from that revision. The header SCSS
+is also copied, including its black service name, user display name and Sign out link.
+Local ports, cookie names, configuration and Vite/template integration are service-specific.
+
+Pages require authentication by default. `/health`, static assets and the Vite
+asset middleware stay public. Unauthenticated browser requests redirect to
+`/auth/login`; JSON/API requests receive 401. User sessions are stored server-side,
+with only an encrypted session identifier in the browser. Expired access tokens
+are refreshed during session validation. Sign out drops the stored session,
+clears the login cookie and redirects to the provider's logout endpoint.
+
+### Local development
+
+```bash
+docker compose up -d redis keycloak
+npm ci
+npm run dev
+```
+
+The local provider signs client-assertion JWTs with the development secret in the
+imported Keycloak realm, rather than calling AWS Cognito. The pre-configured user
+is `dev` / `dev`; the local Keycloak admin credentials are `admin` / `admin`.
+
+| Service | Address |
+| --- | --- |
+| Feedback frontend | `http://localhost:3004` |
+| Keycloak | `http://localhost:8084/land-model-feedback` |
+| Redis | `127.0.0.1:6382` |
+
+These ports and the `landModelFeedbackSessionCookie` /
+`landModelFeedbackUserSessionCookie` development cookie names allow the feedback
+frontend and viewer to run at the same time. Compose starts infrastructure;
+run the frontend on the host with `npm run dev`, as in the viewer.
+
+Set `SESSION_CACHE_ENGINE=memory` to run without Redis; sessions then disappear
+on restart. Unit and integration tests use memory automatically and do not need
+Keycloak, AWS or a network connection. They include the viewer's auth/logging
+suites and exercise protected pages with its `mockAuthCredentials` fixture.
+
+### Deployed environments (CDP)
+
+Set `COGNITO_ENABLED=true`, `COGNITO_IDENTITY_POOL_ID`, `OIDC_CLIENT_ID`,
+`OIDC_WELL_KNOWN_CONFIGURATION_URL`, `APP_BASE_URL` and a service-specific
+`SESSION_COOKIE_PASSWORD` through the deployment configuration. Cognito obtains
+`GetOpenIdTokenForDeveloperIdentity` tokens for the `${serviceName}-aad-access`
+provider; these are sent as JWT client assertions to the OIDC provider. The local
+`OIDC_CLIENT_SECRET` is not used by the Cognito provider. Redis and secure cookies
+are the deployed defaults; the application's registered redirect URI must be
+`${APP_BASE_URL}/auth/callback`.
+
+Request logging, trace IDs and external OIDC/Cognito operation timing follow the
+viewer. External-call timing logs omit URLs, credentials and payloads. Use
+`LOG_FORMAT=pino-pretty` locally or `LOG_FORMAT=ecs` for structured logs, and
+`LOG_LEVEL=debug` to include external-call timing.
+
 ## Docker
 
 ### Development image
@@ -206,7 +270,7 @@ docker build --target development --no-cache --tag gep-land-model-feedback-front
 Run:
 
 ```bash
-docker run -p 3000:3000 gep-land-model-feedback-frontend:development
+docker run --env-file container.env -p 3000:3000 gep-land-model-feedback-frontend:development
 ```
 
 ### Production image
@@ -220,22 +284,25 @@ docker build --no-cache --tag gep-land-model-feedback-frontend .
 Run:
 
 ```bash
-docker run -p 3000:3000 gep-land-model-feedback-frontend
+docker run --env-file container.env -p 3000:3000 gep-land-model-feedback-frontend
 ```
+
+Both images require a `container.env` containing the authentication and Redis
+settings for their environment. `APP_BASE_URL` must be the browser-facing URL;
+the OIDC issuer and token endpoints must also be reachable from inside the container.
+For the bundled local Keycloak setup, run the frontend on the host as described above.
 
 ### Docker Compose
 
-A local environment with:
-
-- Localstack for AWS services (S3, SQS)
-- Redis
-- MongoDB
-- This service.
-- A commented out backend example.
+Compose provides Redis, Keycloak, Floci (AWS services) and MongoDB infrastructure.
+For authentication development only Redis and Keycloak are needed:
 
 ```bash
-docker compose up --build -d
+docker compose up -d redis keycloak
+npm run dev
 ```
+
+The frontend is run separately on the host, matching the viewer's development setup.
 
 ### Dependabot
 

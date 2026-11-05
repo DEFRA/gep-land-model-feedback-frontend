@@ -1,3 +1,4 @@
+import { mockAuthCredentials } from '#/server/common/test-helpers/auth.js'
 import { vi } from 'vitest'
 
 import { catchAll } from './errors.js'
@@ -18,12 +19,13 @@ describe('#errors', () => {
 
   test('Should provide expected Not Found page', async () => {
     const { result, statusCode } = await server.inject({
+      auth: mockAuthCredentials,
       method: 'GET',
       url: '/non-existent-path'
     })
 
     expect(result).toEqual(
-      expect.stringContaining('Page not found | gep-land-model-feedback-frontend')
+      expect.stringContaining('Page not found | Defra Group Land Model Feedback')
     )
     expect(statusCode).toBe(statusCodes.notFound)
   })

@@ -1,3 +1,4 @@
+import { mockAuthCredentials } from '#/server/common/test-helpers/auth.js'
 import { createServer } from '#/server/server.js'
 
 describe('#contentSecurityPolicy', () => {
@@ -14,6 +15,7 @@ describe('#contentSecurityPolicy', () => {
 
   test('Should set the CSP policy header', async () => {
     const resp = await server.inject({
+      auth: mockAuthCredentials,
       method: 'GET',
       url: '/'
     })

@@ -1,3 +1,4 @@
+import { mockAuthCredentials } from '#/server/common/test-helpers/auth.js'
 import { vi } from 'vitest'
 
 import hapi from '@hapi/hapi'
@@ -37,6 +38,7 @@ describe('#startServer', () => {
       expect(hapiServerSpy).toHaveBeenCalled()
 
       const { result, statusCode } = await server.inject({
+        auth: mockAuthCredentials,
         method: 'GET',
         url: '/health'
       })

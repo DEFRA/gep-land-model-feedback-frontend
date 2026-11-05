@@ -1,3 +1,4 @@
+import { mockAuthCredentials } from '#/server/common/test-helpers/auth.js'
 import { describe, beforeAll, afterAll, test, expect } from 'vitest'
 import { cookiesModel } from '#/server/routes/cookies/controller.js'
 import * as cheerio from 'cheerio'
@@ -50,34 +51,34 @@ describe('Cookies route', () => {
   })
 
   test('GET /cookies returns 200', async () => {
-    const response = await server.inject({ method: 'GET', url: '/cookies' })
+    const response = await server.inject({ auth: mockAuthCredentials, method: 'GET', url: '/cookies' })
 
     expect(response.statusCode).toBe(200)
   })
 
   test('GET /cookies renders cookie policy page', async () => {
-    const response = await server.inject({ method: 'GET', url: '/cookies' })
+    const response = await server.inject({ auth: mockAuthCredentials, method: 'GET', url: '/cookies' })
 
     expect(response.request.response.source.template).toBe('cookies/policy')
   })
 
   test('GET /cookies has correct page title', async () => {
-    const response = await server.inject({ method: 'GET', url: '/cookies' })
+    const response = await server.inject({ auth: mockAuthCredentials, method: 'GET', url: '/cookies' })
     const $ = cheerio.load(response.payload)
 
     expect($('title').text()).toContain('Cookies')
-    expect($('title').text()).toContain(config.get('serviceName'))
+    expect($('title').text()).toContain(config.get('serviceDisplayName'))
   })
 
   test('GET /cookies shows analytics radio buttons', async () => {
-    const response = await server.inject({ method: 'GET', url: '/cookies' })
+    const response = await server.inject({ auth: mockAuthCredentials, method: 'GET', url: '/cookies' })
     const $ = cheerio.load(response.payload)
 
     expect($('input[name="analytics"]').length).toBe(2)
   })
 
   test('GET /cookies has cookie tables', async () => {
-    const response = await server.inject({ method: 'GET', url: '/cookies' })
+    const response = await server.inject({ auth: mockAuthCredentials, method: 'GET', url: '/cookies' })
     const $ = cheerio.load(response.payload)
 
     expect($('.govuk-table').length).toBe(2)
@@ -86,12 +87,13 @@ describe('Cookies route', () => {
   })
 
   test('POST /cookies returns 200 if async', async () => {
-    const getResponse = await server.inject({ method: 'GET', url: '/cookies' })
+    const getResponse = await server.inject({ auth: mockAuthCredentials, method: 'GET', url: '/cookies' })
     const $ = cheerio.load(getResponse.payload)
     const cookies = getResponse.headers['set-cookie']
     const crumb = $('input[name="crumb"]').val()
 
     const result = await server.inject({
+      auth: mockAuthCredentials,
       method: 'POST',
       url: '/cookies',
       headers: {
@@ -108,12 +110,13 @@ describe('Cookies route', () => {
   })
 
   test('POST /cookies returns success JSON if async', async () => {
-    const getResponse = await server.inject({ method: 'GET', url: '/cookies' })
+    const getResponse = await server.inject({ auth: mockAuthCredentials, method: 'GET', url: '/cookies' })
     const $ = cheerio.load(getResponse.payload)
     const cookies = getResponse.headers['set-cookie']
     const crumb = $('input[name="crumb"]').val()
 
     const result = await server.inject({
+      auth: mockAuthCredentials,
       method: 'POST',
       url: '/cookies',
       headers: {
@@ -130,12 +133,13 @@ describe('Cookies route', () => {
   })
 
   test('POST /cookies invalid payload returns 400', async () => {
-    const getResponse = await server.inject({ method: 'GET', url: '/cookies' })
+    const getResponse = await server.inject({ auth: mockAuthCredentials, method: 'GET', url: '/cookies' })
     const $ = cheerio.load(getResponse.payload)
     const cookies = getResponse.headers['set-cookie']
     const crumb = $('input[name="crumb"]').val()
 
     const result = await server.inject({
+      auth: mockAuthCredentials,
       method: 'POST',
       url: '/cookies',
       headers: {
@@ -151,12 +155,13 @@ describe('Cookies route', () => {
   })
 
   test('POST /cookies with valid returnUrl redirects', async () => {
-    const getResponse = await server.inject({ method: 'GET', url: '/cookies' })
+    const getResponse = await server.inject({ auth: mockAuthCredentials, method: 'GET', url: '/cookies' })
     const $ = cheerio.load(getResponse.payload)
     const cookies = getResponse.headers['set-cookie']
     const crumb = $('input[name="crumb"]').val()
 
     const result = await server.inject({
+      auth: mockAuthCredentials,
       method: 'POST',
       url: '/cookies',
       headers: {
@@ -175,12 +180,13 @@ describe('Cookies route', () => {
   })
 
   test('POST /cookies with external returnUrl redirects to /cookies?updated=true', async () => {
-    const getResponse = await server.inject({ method: 'GET', url: '/cookies' })
+    const getResponse = await server.inject({ auth: mockAuthCredentials, method: 'GET', url: '/cookies' })
     const $ = cheerio.load(getResponse.payload)
     const cookies = getResponse.headers['set-cookie']
     const crumb = $('input[name="crumb"]').val()
 
     const result = await server.inject({
+      auth: mockAuthCredentials,
       method: 'POST',
       url: '/cookies',
       headers: {
@@ -199,12 +205,13 @@ describe('Cookies route', () => {
   })
 
   test('POST /cookies with protocol-relative returnUrl redirects to /cookies?updated=true', async () => {
-    const getResponse = await server.inject({ method: 'GET', url: '/cookies' })
+    const getResponse = await server.inject({ auth: mockAuthCredentials, method: 'GET', url: '/cookies' })
     const $ = cheerio.load(getResponse.payload)
     const cookies = getResponse.headers['set-cookie']
     const crumb = $('input[name="crumb"]').val()
 
     const result = await server.inject({
+      auth: mockAuthCredentials,
       method: 'POST',
       url: '/cookies',
       headers: {
@@ -223,12 +230,13 @@ describe('Cookies route', () => {
   })
 
   test('POST /cookies with returnUrl exceeding 2000 chars returns 400', async () => {
-    const getResponse = await server.inject({ method: 'GET', url: '/cookies' })
+    const getResponse = await server.inject({ auth: mockAuthCredentials, method: 'GET', url: '/cookies' })
     const $ = cheerio.load(getResponse.payload)
     const cookies = getResponse.headers['set-cookie']
     const crumb = $('input[name="crumb"]').val()
 
     const result = await server.inject({
+      auth: mockAuthCredentials,
       method: 'POST',
       url: '/cookies',
       headers: {
@@ -246,12 +254,13 @@ describe('Cookies route', () => {
   })
 
   test('POST /cookies sync without returnUrl redirects to /cookies?updated=true', async () => {
-    const getResponse = await server.inject({ method: 'GET', url: '/cookies' })
+    const getResponse = await server.inject({ auth: mockAuthCredentials, method: 'GET', url: '/cookies' })
     const $ = cheerio.load(getResponse.payload)
     const cookies = getResponse.headers['set-cookie']
     const crumb = $('input[name="crumb"]').val()
 
     const result = await server.inject({
+      auth: mockAuthCredentials,
       method: 'POST',
       url: '/cookies',
       headers: {
@@ -270,6 +279,7 @@ describe('Cookies route', () => {
 
   test('GET /cookies?updated=true renders policy with success banner', async () => {
     const response = await server.inject({
+      auth: mockAuthCredentials,
       method: 'GET',
       url: '/cookies?updated=true'
     })
@@ -280,7 +290,7 @@ describe('Cookies route', () => {
   })
 
   test('Cookie page hides the banner while providing preference controls', async () => {
-    const response = await server.inject({ method: 'GET', url: '/cookies' })
+    const response = await server.inject({ auth: mockAuthCredentials, method: 'GET', url: '/cookies' })
     const $ = cheerio.load(response.payload)
 
     expect($('.govuk-cookie-banner')).toHaveLength(0)
@@ -290,12 +300,13 @@ describe('Cookies route', () => {
   test('POST /cookies without analytics field returns 400', async () => {
     // analytics is required — omitting it must be rejected so the server never
     // records an ambiguous confirmed:true / analytics:undefined state.
-    const getResponse = await server.inject({ method: 'GET', url: '/cookies' })
+    const getResponse = await server.inject({ auth: mockAuthCredentials, method: 'GET', url: '/cookies' })
     const $ = cheerio.load(getResponse.payload)
     const cookies = getResponse.headers['set-cookie']
     const crumb = $('input[name="crumb"]').val()
 
     const result = await server.inject({
+      auth: mockAuthCredentials,
       method: 'POST',
       url: '/cookies',
       headers: {
@@ -312,19 +323,20 @@ describe('Cookies route', () => {
   })
 
   test('GET /cookies has Cache-Control: no-store header', async () => {
-    const response = await server.inject({ method: 'GET', url: '/cookies' })
+    const response = await server.inject({ auth: mockAuthCredentials, method: 'GET', url: '/cookies' })
 
     expect(response.headers['cache-control']).toBe('no-store')
   })
 
   test('POST /cookies sync view response has Cache-Control: no-store header', async () => {
-    const getResponse = await server.inject({ method: 'GET', url: '/cookies' })
+    const getResponse = await server.inject({ auth: mockAuthCredentials, method: 'GET', url: '/cookies' })
     const $ = cheerio.load(getResponse.payload)
     const cookies = getResponse.headers['set-cookie']
     const crumb = $('input[name="crumb"]').val()
 
     // POST redirects (PRG pattern), so check the resulting GET carries no-store
     const postResult = await server.inject({
+      auth: mockAuthCredentials,
       method: 'POST',
       url: '/cookies',
       headers: {
@@ -340,6 +352,7 @@ describe('Cookies route', () => {
     expect(postResult.statusCode).toBe(302)
 
     const getResult = await server.inject({
+      auth: mockAuthCredentials,
       method: 'GET',
       url: postResult.headers.location,
       headers: {
@@ -357,6 +370,7 @@ describe('Cookies route', () => {
     // The server must not send Set-Cookie expiry headers for GA cookies
     // until the user explicitly rejects analytics.
     const firstVisit = await server.inject({
+      auth: mockAuthCredentials,
       method: 'GET',
       url: '/cookies',
       headers: {

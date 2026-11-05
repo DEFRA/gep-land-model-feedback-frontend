@@ -6,7 +6,8 @@ import convictFormatWithValidator from 'convict-format-with-validator'
 
 const dirname = path.dirname(fileURLToPath(import.meta.url))
 
-const fourHoursMs = 14400000
+const eightHoursMs = 28800000
+const oneDayMs = 86400000
 const oneWeekMs = 604800000
 
 const isProduction = process.env.NODE_ENV === 'production'
@@ -32,7 +33,7 @@ export const config = convict({
   port: {
     doc: 'The port to bind.',
     format: 'port',
-    default: 3000,
+    default: isDevelopment ? 3004 : 3000,
     env: 'PORT'
   },
   staticCacheTimeout: {
@@ -45,6 +46,11 @@ export const config = convict({
     doc: 'Applications Service Name',
     format: String,
     default: 'gep-land-model-feedback-frontend'
+  },
+  serviceDisplayName: {
+    doc: 'Human-readable service name shown in the UI',
+    format: String,
+    default: 'Defra Group Land Model Feedback'
   },
   root: {
     doc: 'Project root',
@@ -71,6 +77,12 @@ export const config = convict({
     doc: 'If this application running in the test environment',
     format: Boolean,
     default: isTest
+  },
+  appBaseUrl: {
+    doc: 'Application base URL',
+    format: String,
+    default: 'http://localhost:3004',
+    env: 'APP_BASE_URL'
   },
   log: {
     enabled: {
@@ -118,27 +130,39 @@ export const config = convict({
       engine: {
         doc: 'backend cache is written to',
         format: ['redis', 'memory'],
-        default: isProduction ? 'redis' : 'memory',
+        default: isTest ? 'memory' : 'redis',
         env: 'SESSION_CACHE_ENGINE'
       },
       name: {
-        doc: 'server side session cache name',
+        doc: 'Server-side session cache name, also used for the Yar session cookie',
         format: String,
-        default: 'session',
+        default: isDevelopment ? 'landModelFeedbackSessionCookie' : 'session',
         env: 'SESSION_CACHE_NAME'
       },
       ttl: {
         doc: 'server side session cache ttl',
         format: Number,
-        default: fourHoursMs,
+        default: oneDayMs,
         env: 'SESSION_CACHE_TTL'
+      },
+      segment: {
+        doc: 'Isolate cached items within the cache partition',
+        format: String,
+        default: 'session',
+        env: 'SESSION_CACHE_SEGMENT'
       }
     },
     cookie: {
+      name: {
+        doc: 'Login cookie name. Use distinct names for apps sharing a hostname.',
+        format: String,
+        default: isDevelopment ? 'landModelFeedbackUserSessionCookie' : 'userSessionCookie',
+        env: 'SESSION_COOKIE_NAME'
+      },
       ttl: {
         doc: 'Session cookie ttl',
         format: Number,
-        default: fourHoursMs,
+        default: eightHoursMs,
         env: 'SESSION_COOKIE_TTL'
       },
       password: {
@@ -157,6 +181,12 @@ export const config = convict({
     }
   },
   redis: {
+    port: {
+      doc: 'Redis cache port',
+      format: 'port',
+      default: isDevelopment ? 6382 : 6379,
+      env: 'REDIS_PORT'
+    },
     host: {
       doc: 'Redis cache host',
       format: String,
@@ -193,6 +223,43 @@ export const config = convict({
       format: Boolean,
       default: isProduction,
       env: 'REDIS_TLS'
+    }
+  },
+  oidc: {
+    clientId: {
+      doc: 'OIDC client ID',
+      format: String,
+      env: 'OIDC_CLIENT_ID',
+      default: 'd02ee02c-b8da-483d-8a4e-29de7db48b03'
+    },
+    clientSecret: {
+      doc: 'OIDC client secret, shared between mock credential provider and local Keycloak. Not used in deployed environments.',
+      format: String,
+      sensitive: true,
+      env: 'OIDC_CLIENT_SECRET',
+      default: 'local-dev-secret'
+    },
+    wellKnownConfigurationUrl: {
+      doc: 'OIDC .well-known configuration URL',
+      format: String,
+      env: 'OIDC_WELL_KNOWN_CONFIGURATION_URL',
+      // A product-specific Keycloak path keeps its cookies separate from other local apps.
+      default: 'http://localhost:8084/land-model-feedback/realms/defra-local/.well-known/openid-configuration'
+    },
+  },
+  cognito: {
+    enabled: {
+      doc: 'Use AWS Cognito for client assertions (false uses local JWT signer)',
+      format: Boolean,
+      default: false,
+      env: 'COGNITO_ENABLED'
+    },
+    identityPoolId: {
+      doc: 'AWS Cognito identity pool ID',
+      format: String,
+      env: 'COGNITO_IDENTITY_POOL_ID',
+      nullable: true,
+      default: null
     }
   },
   nunjucks: {

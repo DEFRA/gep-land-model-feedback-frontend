@@ -1,3 +1,4 @@
+import { mockAuthCredentials } from '#/server/common/test-helpers/auth.js'
 import { createServer } from '../../server.js'
 
 describe('#securityHeaders', () => {
@@ -15,6 +16,7 @@ describe('#securityHeaders', () => {
   describe('Headers already configured via routes.security and plugins', () => {
     test('Should set Strict-Transport-Security header', async () => {
       const { headers } = await server.inject({
+        auth: mockAuthCredentials,
         method: 'GET',
         url: '/'
       })
@@ -26,6 +28,7 @@ describe('#securityHeaders', () => {
 
     test('Should set X-Frame-Options to DENY', async () => {
       const { headers } = await server.inject({
+        auth: mockAuthCredentials,
         method: 'GET',
         url: '/'
       })
@@ -35,6 +38,7 @@ describe('#securityHeaders', () => {
 
     test('Should set X-Content-Type-Options to nosniff', async () => {
       const { headers } = await server.inject({
+        auth: mockAuthCredentials,
         method: 'GET',
         url: '/'
       })
@@ -44,6 +48,7 @@ describe('#securityHeaders', () => {
 
     test('Should set Content-Security-Policy header', async () => {
       const { headers } = await server.inject({
+        auth: mockAuthCredentials,
         method: 'GET',
         url: '/'
       })
@@ -53,6 +58,7 @@ describe('#securityHeaders', () => {
 
     test('Should set X-XSS-Protection to 0', async () => {
       const { headers } = await server.inject({
+        auth: mockAuthCredentials,
         method: 'GET',
         url: '/'
       })
@@ -62,6 +68,7 @@ describe('#securityHeaders', () => {
 
     test('Should set Referrer-Policy to no-referrer', async () => {
       const { headers } = await server.inject({
+        auth: mockAuthCredentials,
         method: 'GET',
         url: '/'
       })
@@ -73,6 +80,7 @@ describe('#securityHeaders', () => {
   describe('Headers set via security-headers plugin', () => {
     test('Should set Permissions-Policy header', async () => {
       const { headers } = await server.inject({
+        auth: mockAuthCredentials,
         method: 'GET',
         url: '/'
       })
@@ -84,6 +92,7 @@ describe('#securityHeaders', () => {
 
     test('Should set Cross-Origin-Opener-Policy header', async () => {
       const { headers } = await server.inject({
+        auth: mockAuthCredentials,
         method: 'GET',
         url: '/'
       })
@@ -93,6 +102,7 @@ describe('#securityHeaders', () => {
 
     test('Should set Cross-Origin-Resource-Policy header', async () => {
       const { headers } = await server.inject({
+        auth: mockAuthCredentials,
         method: 'GET',
         url: '/'
       })
@@ -102,6 +112,7 @@ describe('#securityHeaders', () => {
 
     test('Should set Cross-Origin-Embedder-Policy header', async () => {
       const { headers } = await server.inject({
+        auth: mockAuthCredentials,
         method: 'GET',
         url: '/'
       })
@@ -111,6 +122,7 @@ describe('#securityHeaders', () => {
 
     test('Should set X-Permitted-Cross-Domain-Policies header', async () => {
       const { headers } = await server.inject({
+        auth: mockAuthCredentials,
         method: 'GET',
         url: '/'
       })

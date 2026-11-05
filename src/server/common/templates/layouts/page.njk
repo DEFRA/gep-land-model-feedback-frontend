@@ -49,10 +49,17 @@
       />
       <a href="{{ serviceUrl | default('/') }}" class="defra-header__service-name">{{ serviceName }}</a>
     </div>
+    {% if user %}
+    <div class="defra-header__auth">
+      <span class="defra-header__user-name">{{ user.displayName }}</span>
+      <a class="govuk-link govuk-link--no-visited-state defra-header__sign-out" href="/auth/logout">Sign out</a>
+    </div>
+    {% endif %}
   </div>
 </header>
-{% include "partials/navigation.njk" %}
 {% endblock %}
+
+{% include "partials/navigation.njk" %}
 
 {% block pageTitle %}
   {{ pageTitle }} | {{ serviceName }}
