@@ -1,0 +1,29 @@
+{% extends 'layouts/page.njk' %}
+{% from "govuk/components/back-link/macro.njk" import govukBackLink %}
+{% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
+{% from "govuk/components/radios/macro.njk" import govukRadios %}
+{% from "govuk/components/button/macro.njk" import govukButton %}
+
+{% block beforeContent %}
+  {{ govukBackLink({ text: "Back", href: "/" }) }}
+{% endblock %}
+{% block content %}
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      {% if errorSummary %}{{ govukErrorSummary(errorSummary) }}{% endif %}
+      <form action="/report-issue/data" method="post" novalidate>
+        <input type="hidden" name="crumb" value="{{ crumb }}">
+        {{ govukRadios({
+          name: "dataset", idPrefix: "dataset", value: dataset,
+          fieldset: { legend: { text: question, isPageHeading: true, classes: "govuk-fieldset__legend--l" } },
+          errorMessage: datasetError,
+          items: [
+            { value: "land-model", text: "ATLAS Land Model" },
+            { value: "other", text: "Other", disabled: true, hint: { text: "Not available yet" } }
+          ]
+        }) }}
+        {{ govukButton({ text: "Continue" }) }}
+      </form>
+    </div>
+  </div>
+{% endblock %}

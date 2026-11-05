@@ -1,0 +1,54 @@
+{% extends 'layouts/page.njk' %}
+
+{% from "govuk/components/back-link/macro.njk" import govukBackLink %}
+{% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
+{% from "govuk/components/radios/macro.njk" import govukRadios %}
+{% from "govuk/components/input/macro.njk" import govukInput %}
+{% from "govuk/components/button/macro.njk" import govukButton %}
+
+{% block beforeContent %}
+  {{ govukBackLink({ text: "Back", href: "/" }) }}
+{% endblock %}
+
+{% block content %}
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      {% if errorSummary %}
+        {{ govukErrorSummary(errorSummary) }}
+      {% endif %}
+
+      {% set otherInput %}
+        {{ govukInput({
+          id: "technical-other",
+          name: "technicalOther",
+          label: { text: "Enter what the issue relates to" },
+          value: technicalOther,
+          errorMessage: otherError
+        }) }}
+      {% endset %}
+
+      <form action="/report-issue/technical" method="post" novalidate>
+        <input type="hidden" name="crumb" value="{{ crumb }}">
+        {{ govukRadios({
+          name: "technicalArea",
+          idPrefix: "technical-area",
+          value: technicalArea,
+          fieldset: {
+            legend: { text: question, isPageHeading: true, classes: "govuk-fieldset__legend--l" }
+          },
+          errorMessage: areaError,
+          items: options.concat([
+            { divider: "or" },
+            {
+              value: "other",
+              text: "Other",
+              id: "technical-area-other",
+              conditional: { html: otherInput }
+            }
+          ])
+        }) }}
+        {{ govukButton({ text: "Continue" }) }}
+      </form>
+    </div>
+  </div>
+{% endblock %}

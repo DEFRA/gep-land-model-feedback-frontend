@@ -1,0 +1,27 @@
+{% extends 'layouts/page.njk' %}
+
+{% from "govuk/components/back-link/macro.njk" import govukBackLink %}
+{% from "govuk/components/character-count/macro.njk" import govukCharacterCount %}
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/inset-text/macro.njk" import govukInsetText %}
+
+{% block beforeContent %}
+  {{ govukBackLink({ text: "Back", href: "/report-issue/technical" }) }}
+{% endblock %}
+
+{% block content %}
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      {{ govukCharacterCount({
+        name: "issueDescription",
+        id: "issue-description",
+        maxlength: 2000,
+        rows: 5,
+        label: { text: pageTitle, isPageHeading: true, classes: "govuk-label--l" },
+        hint: { text: "Enter as much information as possible to help us triage the issue. You will be able to attach files on the following page" }
+      }) }}
+      {{ govukInsetText({ text: "The following step is not available yet. Your issue has not been submitted." }) }}
+      {{ govukButton({ text: "Continue", disabled: true }) }}
+    </div>
+  </div>
+{% endblock %}

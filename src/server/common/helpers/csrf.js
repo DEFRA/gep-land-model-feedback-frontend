@@ -4,9 +4,9 @@ import { config } from '../../../config/config.js'
 export const csrf = {
   plugin: Crumb,
   options: {
-    // Generate tokens on pages with the banner; validate only cookie preference POSTs.
+    // Protect application forms. OIDC callbacks use the provider's PKCE flow.
     skip: (request) => request.path.startsWith(config.get('assetPath')) ||
-      (request.method !== 'get' && request.path !== '/cookies'),
+      request.path === '/auth/callback',
     cookieOptions: {
       isSecure: config.get('isProduction')
     }

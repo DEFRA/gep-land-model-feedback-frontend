@@ -225,6 +225,14 @@ export const config = convict({
       env: 'REDIS_TLS'
     }
   },
+  auth: {
+    required: {
+      doc: 'Require authentication; false is honoured only for loopback local development',
+      format: Boolean,
+      default: true,
+      env: 'AUTH_REQUIRED'
+    }
+  },
   oidc: {
     clientId: {
       doc: 'OIDC client ID',

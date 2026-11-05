@@ -1,0 +1,41 @@
+{% extends 'layouts/page.njk' %}
+{% from "govuk/components/back-link/macro.njk" import govukBackLink %}
+{% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
+{% from "govuk/components/radios/macro.njk" import govukRadios %}
+{% from "govuk/components/input/macro.njk" import govukInput %}
+{% from "govuk/components/button/macro.njk" import govukButton %}
+
+{% block beforeContent %}
+  {{ govukBackLink({ text: "Back", href: "/report-issue/data" }) }}
+{% endblock %}
+{% block content %}
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      {% if errorSummary %}{{ govukErrorSummary(errorSummary) }}{% endif %}
+      {% set items = [] %}
+      {% for option in options %}
+        {% set conditionalInput %}
+          {{ govukInput({
+            name: option.name, id: option.id, value: option.inputValue,
+            label: { text: option.label }, hint: { text: option.hint }, errorMessage: option.error
+          }) }}
+        {% endset %}
+        {% if option.value == "other" %}{% set items = items.concat([{ divider: "or" }]) %}{% endif %}
+        {% set items = items.concat([{
+          value: option.value, text: option.text,
+          conditional: { html: conditionalInput }
+        }]) %}
+      {% endfor %}
+      <form action="/report-issue/data/location" method="post" novalidate>
+        <input type="hidden" name="crumb" value="{{ crumb }}">
+        {{ govukRadios({
+          name: "locationType", idPrefix: "location-type", value: locationType,
+          fieldset: { legend: { text: question, isPageHeading: true, classes: "govuk-fieldset__legend--l" } },
+          hint: { text: "Select how you’d like to identify the location of the issue" },
+          errorMessage: typeError, items: items
+        }) }}
+        {{ govukButton({ text: "Continue" }) }}
+      </form>
+    </div>
+  </div>
+{% endblock %}

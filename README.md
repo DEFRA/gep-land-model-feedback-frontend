@@ -19,6 +19,7 @@ Core delivery platform Node.js Frontend Template.
   - [Linting and Formatting](#linting-and-formatting)
   - [Testing](#testing)
   - [CI/CD](#cicd)
+- [Issue reporting workflow](#issue-reporting-workflow)
 - [GeoNetwork dataset catalogue](#geonetwork-dataset-catalogue)
 - [Authentication](#authentication)
 - [Docker](#docker)
@@ -194,6 +195,73 @@ When a PR is merged into `main`, the [Auto Back-merge](.github/workflows/auto-ba
 
 Hotfixes are handled by the [Publish Hot Fix](.github/workflows/publish-hotfix.yml) workflow, triggered manually from a hotfix branch. Each trigger builds a new patch version (e.g. `0.2.1`, `0.2.2`) so fixes can be re-tested before merging. Deploy hotfix artifacts via the CDP portal.
 
+## Issue reporting workflow
+
+The initial page at `/` asks **What type of issue is being reported?**, with Data
+issue and Technical issue radio options and hints. All workflow controls use the
+`govuk-frontend` Nunjucks macros; continue using these components for future pages.
+
+Submitting an empty or invalid selection returns HTTP 400, prefixes the page title
+with `Error:`, and displays the GOV.UK error summary and inline message:
+**Select what type of issue is being reported**. The summary links to the first
+radio input and its JavaScript enhancement focuses the summary automatically.
+
+A valid POST stores `issueType` in the Yar session and redirects with HTTP 303 to
+`/report-issue/data` or `/report-issue/technical`. The Back link returns to `/`
+with the previous choice selected. Opening a branch without the matching choice
+returns to the initial page. All pages require the existing authentication.
+
+The branches use the questions and option labels based on the
+[v2 prototype](https://gep-issue-reporting.prototypes.informed.com/v2/), using ATLAS terminology:
+
+- Data issue: **Which dataset is the issue within?** — ATLAS Land Model / Other.
+- Technical issue: **What does the technical issue relate to?** — ATLAS Map Viewer,
+  ATLAS Data Search & Find, ATLAS Repository Integration, ATLAS data ingestion,
+  ATLAS data export, or Other.
+
+The Data issue page at `/report-issue/data` now accepts ATLAS Land Model and
+continues to `/report-issue/data/location`. The dataset Other option remains
+disabled; its future dropdown will use `listDatasets()` and the configured
+`GEONETWORK_DATASET_CATEGORIES` filter.
+
+**Enter the location of the issue** uses GOV.UK conditional radios for Grid cell,
+Feature and Other, with the prototype's labels, hints and error messages. Continue
+requires a location method and non-blank text for its selected input. Only that
+input is saved, trimmed, in the Yar session as `issueLocation`; changing the method
+clears the previous input. Back restores the saved answers. Grid cell and feature
+references are required text for now; no catalogue or geographic lookup is performed.
+A valid location continues to `/report-issue/data/attributes`, a disabled placeholder
+for **Which attributes are incorrect?**. No report is submitted.
+
+The Technical issue page is active at `/report-issue/technical`. Its GOV.UK radios reveal the **Enter what
+the issue relates to** input when Other is selected. Continue requires a radio
+selection and, for Other, non-blank text. Errors use the prototype's exact messages,
+a GOV.UK error summary, inline errors and an `Error:` page-title prefix.
+
+A valid technical selection is stored in the Yar session as `technicalArea` and
+`technicalOther` and redirects to `/report-issue/technical/description`. Other
+text is trimmed and cleared when a listed option is selected. Back links restore
+the saved selection and text. The description page uses the **GOV.UK Character
+Count component**, including its supplied JavaScript, for the prototype's
+2,000-character counter and hint. No custom character-counting JavaScript is used.
+Its onward Continue button remains disabled until the following step is implemented;
+description text is not saved yet and no report or notification is submitted.
+
+CSRF validation now covers application forms; the OIDC callback remains exempt
+because it is verified by the authentication flow. Include the hidden `crumb`
+field on any future POST form.
+
+### Manual validation testing
+
+Use a new incognito or private browsing session to start with no saved form
+selections. Sign in, then click Continue on the initial page without selecting an
+issue type to check the error summary and inline validation message.
+
+Private windows can share the same private browsing session. To repeat the test
+with a fresh session after making selections, close **all** incognito/private
+windows and open a new one. A new tab in an existing session may restore saved
+selections.
+
 ## GeoNetwork dataset catalogue
 
 The helpers in `src/server/datasets/geonetwork/` reuse the viewer's field mapping,
@@ -243,8 +311,28 @@ limits, HTTP/network errors, timeouts, invalid responses and incomplete/overlapp
 pages reject the call rather than silently producing a partial dropdown. Callers
 should handle these errors when the selection feature is implemented.
 
-GeoNetwork is provided separately, as in the viewer; this change does not add a
-GeoNetwork server to Compose. The dropdown UI is not implemented yet.
+### Local GeoNetwork and test data
+
+If developing GeoNetwork functionality you will need GeoNetwork running, a dockerised version with the custom plugins is available
+in [DEFRA-GEP-metadata-management](https://dev.azure.com/defragovuk/DEFRA-GEP/_git/DEFRA-GEP-metadata-management) for use with
+this project, the `gep-find-geo-data-frontend` and the `gep-land-model-viewer-frontend`.
+
+Start the shared GeoNetwork from `DEFRA-GEP-metadata-management` and import its test data separately (see its README.md).
+This follows the same Docker setup as the two frontend repositories. Access to the
+Azure DevOps repository is required. Use its README for the Docker Compose commands,
+custom plugins and test-data import, rather than a second GeoNetwork stack in this
+repository. The catalogue helpers read metadata from
+`http://localhost:8080/geonetwork/srv/api` by default.
+
+After importing test data, verify the configured category filter from this repository:
+
+```bash
+node --env-file-if-exists=.env --input-type=module -e 'const { listDatasets } = await import("./src/server/datasets/geonetwork/catalogue.js"); console.table(await listDatasets())'
+```
+
+Set `GEONETWORK_DATASET_CATEGORIES` to the category IDs assigned to your test records
+to check that only matching datasets are returned. Leave it empty to list all
+non-template records. The Other dataset dropdown itself is not implemented yet.
 
 ## Authentication
 
@@ -269,6 +357,25 @@ docker compose up -d redis keycloak
 npm ci
 npm run dev
 ```
+
+Authentication is required by default (`AUTH_REQUIRED=true`). To work locally
+without signing in or starting Keycloak, set this in `.env` and restart `npm run dev`:
+
+```dotenv
+AUTH_REQUIRED=false
+```
+
+This setting is honoured only with `NODE_ENV=development` (set by `npm run dev`)
+and a loopback `APP_BASE_URL`, such as `http://localhost:3004`. When disabled,
+the server binds to loopback instead of the configured public interface. The
+user name and Sign out link are absent; no fake user or credentials are created.
+CSRF validation and session-backed form selections remain active. Redis is still
+needed unless you also set `SESSION_CACHE_ENGINE=memory` for local development.
+
+Set `AUTH_REQUIRED=true`, or remove the variable, to require login again. The
+variable cannot disable authentication in production, tests, or when `APP_BASE_URL`
+points to a non-local hostname. `npm start` continues to require authentication.
+
 
 The local provider signs client-assertion JWTs with the development secret in the
 imported Keycloak realm, rather than calling AWS Cognito. The pre-configured user

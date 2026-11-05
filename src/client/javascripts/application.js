@@ -2,6 +2,7 @@ import {
   createAll,
   Button,
   Checkboxes,
+  CharacterCount,
   ErrorSummary,
   Radios,
   SkipLink
@@ -13,6 +14,7 @@ initCookiesPage()
 
 createAll(Button)
 createAll(Checkboxes)
+createAll(CharacterCount)
 createAll(ErrorSummary)
 createAll(Radios)
 createAll(SkipLink)
