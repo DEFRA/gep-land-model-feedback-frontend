@@ -1,24 +1,3 @@
-// Cookie consent policy management.
-//
-// This module handles the server-side cookie consent state. It is used by
-// both the cookies plugin (to inject state into templates) and the cookies
-// route (to update the policy when the user submits the form).
-//
-// KEY DESIGN DECISIONS:
-//
-// 1. Default policy has analytics: false — no tracking until the user
-//    explicitly opts in. This complies with ICO/GDPR requirements.
-//
-// 2. confirmed: false means the user hasn't made a choice yet, so the
-//    cookie banner should be shown.
-//
-// 3. removeAnalytics() deletes GA cookies SERVER-SIDE using h.unstate().
-//    This is essential because:
-//    - The user might have JavaScript disabled
-//    - The client-side deletion might miss cookies on certain domains
-//    - Server-side removal sets Set-Cookie headers with past expiry dates
-//    The regex matches all GA cookie patterns: _ga, _ga_*, _gid, _gat_*
-
 import { config } from '#/config/config.js'
 
 const cookieNamePolicy = config.get('cookieConsent.name')
@@ -28,7 +7,9 @@ const cookieConfig = config.get('cookieConsent.config')
 function getCurrentPolicy (request, h) {
   let cookiesPolicy = request.state[cookieNamePolicy]
 
-  if (!cookiesPolicy) {
+  if (cookiesPolicy?.essential !== true ||
+      typeof cookiesPolicy?.confirmed !== 'boolean' ||
+      typeof cookiesPolicy?.analytics !== 'boolean') {
     cookiesPolicy = createDefaultPolicy(h)
   }
 
@@ -57,10 +38,7 @@ function updatePolicy (request, h, analytics) {
 }
 
 function removeAnalytics (request, h) {
-  // Match all Google Analytics cookie name patterns.
-  // h.unstate() tells Hapi to send Set-Cookie headers that expire them.
-  // Prefixes: _ga (base), _ga_* (GA4 stream), _gid (daily), _gat_* (throttle), _dc_gtm_* (GTM)
-  const googleCookiesRegex = /^_ga$|^_ga_.*$|^_gid$|^_gat_.*$|^_dc_gtm_.*$/
+  const googleCookiesRegex = /^_ga$|^_ga_.*$|^_gid$|^_gat(?:_.*)?$|^_dc_gtm_.*$/
 
   for (const cookieName of Object.keys(request.state)) {
     if (googleCookiesRegex.test(cookieName)) {

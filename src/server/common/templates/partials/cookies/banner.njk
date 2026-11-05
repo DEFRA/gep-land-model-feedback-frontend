@@ -1,42 +1,4 @@
-{#
-  Cookie banner
-
-  HOW IT WORKS WITHOUT JAVASCRIPT (progressive enhancement):
-    The entire banner is wrapped in a <form> that POSTs to /cookies.
-    The Accept and Reject buttons are <button type="submit"> elements
-    with name="analytics" and value="true" or "false". When clicked
-    without JS, the browser submits the form normally. The server
-    processes the consent, sets the cookie, and redirects back to the
-    page the user was on (via the hidden returnUrl input).
-
-  HOW IT WORKS WITH JAVASCRIPT (enhanced experience):
-    The client-side cookies.js script intercepts the button clicks,
-    prevents the default form submission, and instead:
-    1. Shows the accepted/rejected confirmation banner immediately
-    2. Immediately loads GTM (on accept) or deletes GA cookies (on reject)
-    3. Sends an async XHR POST to /cookies to persist the choice server-side
-    4. On XHR failure, falls back to a native form POST
-
-    There is intentionally no redirect after the XHR succeeds. The user
-    stays on the current page with the confirmation banner visible. The
-    next natural navigation will render GTM server-side (if accepted),
-    avoiding a duplicate GA page_view from loading GTM twice on the same page.
-
-    The data attributes on the banner container pass server-generated
-    values to the client-side script:
-    - data-crumb: the CSRF token for the XHR POST
-    - data-gtm-key: the GTM container ID to load on acceptance
-
-  WHY BOTH MODES?
-    GOV.UK services must work without JavaScript (WCAG 2.2, progressive
-    enhancement). The form-based approach ensures basic functionality.
-    JavaScript enhances the experience with instant feedback.
-
-  CSRF PROTECTION:
-    The hidden crumb input is required for the form POST to succeed.
-    Without it, @hapi/crumb would reject the submission with 403.
-#}
-
+{% if googleTagManagerKey and not hideCookieBanner and not cookiesPolicy.confirmed %}
 {% from "govuk/components/cookie-banner/macro.njk" import govukCookieBanner %}
 
 {% set questionHtml %}
@@ -120,3 +82,4 @@
     ]
   }) }}
 </form>
+{% endif %}

@@ -55,7 +55,7 @@ describe('cookies', () => {
   test('getCurrentPolicy returns cookie if policy exists', () => {
     request.state[cookieNamePolicy] = {
       confirmed: true,
-      essential: false,
+      essential: true,
       analytics: true
     }
 
@@ -63,7 +63,7 @@ describe('cookies', () => {
 
     expect(result).toStrictEqual({
       confirmed: true,
-      essential: false,
+      essential: true,
       analytics: true
     })
   })
@@ -71,7 +71,7 @@ describe('cookies', () => {
   test('getCurrentPolicy does not set default cookie if policy exists', () => {
     request.state[cookieNamePolicy] = {
       confirmed: true,
-      essential: false,
+      essential: true,
       analytics: true
     }
 

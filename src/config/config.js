@@ -222,6 +222,21 @@ export const config = convict({
       default: `${encodeURIComponent('gep-land-model-feedback-frontend')}_policy`
     },
     policy: {
+      ignoreErrors: {
+        doc: 'Ignore invalid cookie encodings and reset consent safely',
+        format: Boolean,
+        default: true
+      },
+      isHttpOnly: {
+        doc: 'Only allow the server to read the consent policy cookie',
+        format: Boolean,
+        default: true
+      },
+      path: {
+        doc: 'Apply the consent policy to every service route',
+        format: String,
+        default: '/'
+      },
       clearInvalid: {
         doc: 'Clear the cookie if it fails validation (e.g. bad JSON)',
         format: Boolean,

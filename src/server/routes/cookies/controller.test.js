@@ -1,7 +1,6 @@
 import { describe, beforeAll, afterAll, test, expect } from 'vitest'
 import { cookiesModel } from '#/server/routes/cookies/controller.js'
 import * as cheerio from 'cheerio'
-import { createServer } from '../../server.js'
 import { config } from '#/config/config.js'
 
 describe('cookiesModel', () => {
@@ -38,12 +37,16 @@ describe('Cookies route', () => {
   let server
 
   beforeAll(async () => {
+    vi.stubEnv('GOOGLE_TAG_MANAGER_KEY', 'GTM-TEST123')
+    vi.resetModules()
+    const { createServer } = await import('../../server.js')
     server = await createServer()
     await server.initialize()
   })
 
   afterAll(async () => {
     await server.stop({ timeout: 0 })
+    vi.unstubAllEnvs()
   })
 
   test('GET /cookies returns 200', async () => {
@@ -276,17 +279,12 @@ describe('Cookies route', () => {
     expect($('.govuk-notification-banner--success').length).toBe(1)
   })
 
-  test('Cookie banner appears on cookie page when no cookie set', async () => {
+  test('Cookie page hides the banner while providing preference controls', async () => {
     const response = await server.inject({ method: 'GET', url: '/cookies' })
     const $ = cheerio.load(response.payload)
 
-    expect($('.govuk-cookie-banner').length).toBe(1)
-    expect($('.js-cookies-button-accept').text()).toContain(
-      'Accept analytics cookies'
-    )
-    expect($('.js-cookies-button-reject').text()).toContain(
-      'Reject analytics cookies'
-    )
+    expect($('.govuk-cookie-banner')).toHaveLength(0)
+    expect($('#cookies-form input[name="analytics"]')).toHaveLength(2)
   })
 
   test('POST /cookies without analytics field returns 400', async () => {

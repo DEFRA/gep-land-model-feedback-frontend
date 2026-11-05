@@ -15,5 +15,13 @@ export function isSafeRedirect (url) {
   if (!url || typeof url !== 'string') {
     return false
   }
-  return url.startsWith('/') && !url.startsWith('//')
+  if (!url.startsWith('/') || url.startsWith('//')) {
+    return false
+  }
+  try {
+    const parsed = new URL(url, 'http://localhost')
+    return parsed.origin === 'http://localhost' && !parsed.pathname.startsWith('//')
+  } catch {
+    return false
+  }
 }

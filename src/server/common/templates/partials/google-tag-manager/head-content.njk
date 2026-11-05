@@ -1,14 +1,3 @@
-{#
-  Google Tag Manager — head script.
-
-  This is the standard GTM snippet that loads the gtm.js library.
-  It MUST have a nonce attribute to satisfy CSP. The nonce is generated
-  by Blankie for each response and made available as {{ nonce }}.
-
-  This template is only included when cookiesPolicy.analytics is true
-  (see layout.njk), so GTM never loads without consent.
-#}
-
 {% if googleTagManagerKey %}
   <script nonce="{{ nonce }}">(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
   new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],

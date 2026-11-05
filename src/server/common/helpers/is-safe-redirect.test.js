@@ -34,3 +34,7 @@ describe('isSafeRedirect', () => {
     expect(isSafeRedirect(123)).toBe(false)
   })
 })
+
+test.each(['/.//evil.example.com', '/\\evil.example.com', '/foo/..//evil.example.com', '//[invalid'])('rejects browser-normalised external URL %s', (url) => {
+  expect(isSafeRedirect(url)).toBe(false)
+})

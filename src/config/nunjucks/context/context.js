@@ -13,9 +13,6 @@ const manifestPath = path.join(
 )
 
 const googleTagManagerKey = config.get('googleAnalytics.googleTagManagerKey')
-if (!googleTagManagerKey && config.get('isProduction')) {
-  logger.warn('Analytics googleTagManagerKey not set')
-}
 
 let viteManifest
 

@@ -98,6 +98,12 @@ CSRF-protected requests to `/cookies`; the former `/cookies/accept` and `/cookie
 endpoints have been replaced. Analytics only loads after consent, and rejecting analytics
 removes GA cookies.
 
+The optional cookie banner and analytics section on `/cookies` are only displayed when
+`GOOGLE_TAG_MANAGER_KEY` is set. The cookies page always hides the banner. This matches
+`DEFRA/gep-land-model-viewer-frontend` at `ac0c7b3441299715149d174e8a8ef21aec9fa349`.
+Consent Mode defaults deny storage; analytics is granted and GTM loaded only after
+the preference is saved. Advertising consent remains denied.
+
 ### Development
 
 To run the application in `development` mode run:

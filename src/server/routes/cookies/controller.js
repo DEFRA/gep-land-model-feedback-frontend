@@ -16,9 +16,10 @@ export const cookiePolicyController = {
   handler: function (request, h) {
     return h.view('cookies/policy', {
       pageTitle: 'Cookies',
+      hideCookieBanner: true,
       ...cookiesModel(
         request.query.updated,
-        request.state[config.get('cookieConsent.name')]
+        request.state[config.get('cookieConsent.name')] ?? {}
       )
     })
   }

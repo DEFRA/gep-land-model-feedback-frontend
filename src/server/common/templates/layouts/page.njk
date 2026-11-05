@@ -17,7 +17,8 @@
 {% endblock %}
 
 {% block head %}
-  {% if cookiesPolicy.analytics %}
+  {% include "partials/google-tag-manager/consent.njk" %}
+  {% if cookiesPolicy.confirmed and cookiesPolicy.analytics %}
     {% include "partials/google-tag-manager/head-content.njk" %}
   {% endif %}
 
@@ -32,7 +33,7 @@
   {% endif %}
 
   {# Only load GTM when user has accepted analytics cookies #}
-  {% if cookiesPolicy.analytics %}
+  {% if cookiesPolicy.confirmed and cookiesPolicy.analytics %}
     {% include "partials/google-tag-manager/body-content.njk" %}
   {% endif %}
 {% endblock %}

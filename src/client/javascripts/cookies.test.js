@@ -1,130 +1,187 @@
-// @vitest-environment jsdom
-import { vi } from 'vitest'
-import cookies from './cookies.js'
+/** @vitest-environment jsdom */
+import { loadGoogleTagManager, removeAnalyticsCookies, initCookieBanner, initCookiesPage, updateGoogleConsent } from './cookies.js'
 
-let requests
-let submit
+const bannerHtml = `
+<form action="/cookies" method="post">
+  <div class="js-cookies-container" data-crumb="token" data-gtm-key="GTM-TEST123">
+    <div class="js-question-banner"><button type="submit" name="analytics" value="true">Accept</button><button type="submit" name="analytics" value="false">Reject</button></div>
+    <div class="js-cookies-accepted" hidden><button type="button" class="js-hide">Hide</button></div>
+    <div class="js-cookies-rejected" hidden><button type="button" class="js-hide">Hide</button></div>
+  </div>
+</form>`
 
-function renderBanner (gtmKey = 'GTM-TEST123') {
-  document.body.innerHTML = `
-    <form action="/cookies" method="post">
-      <div class="js-cookies-container js-cookies-banner" data-crumb="csrf-token" data-gtm-key="${gtmKey}">
-        <div class="js-question-banner">
-          <button type="button" class="js-cookies-button-accept">Accept</button>
-          <button type="button" class="js-cookies-button-reject">Reject</button>
-        </div>
-        <div class="js-cookies-accepted" hidden><button type="button" class="js-hide">Hide</button></div>
-        <div class="js-cookies-rejected" hidden><button type="button" class="js-hide">Hide</button></div>
-      </div>
-    </form>`
-  submit = vi.spyOn(document.querySelector('form'), 'submit').mockImplementation(() => {})
-  cookies.setupCookieComponentListeners()
+function clearCookies () {
+  for (const cookie of document.cookie.split(';')) {
+    document.cookie = `${cookie.split('=')[0].trim()}=; max-age=0; path=/`
+  }
 }
 
 beforeEach(() => {
-  document.body.innerHTML = ''
+  clearCookies()
   document.head.innerHTML = ''
-  for (const cookie of document.cookie.split(';')) {
-    document.cookie = `${cookie.split('=')[0].trim()}=; Max-Age=0; path=/`
-  }
+  document.body.innerHTML = ''
   delete globalThis.dataLayer
-  requests = []
-  vi.stubGlobal('XMLHttpRequest', class {
-    constructor () {
-      this.open = vi.fn()
-      this.setRequestHeader = vi.fn()
-      this.send = vi.fn()
-      requests.push(this)
-    }
-  })
+  vi.stubGlobal('gtag', vi.fn())
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true }))
 })
-
 afterEach(() => {
+  clearCookies()
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
 })
 
-test('accept persists consent with CSRF and loads GTM without navigating', () => {
-  renderBanner()
-  expect(document.querySelector('script')).toBeNull()
-  document.querySelector('.js-cookies-button-accept').click()
-  expect(requests[0].open).toHaveBeenCalledWith('POST', '/cookies', true)
-  expect(requests[0].setRequestHeader).toHaveBeenCalledWith('Content-Type', 'application/json')
-  expect(JSON.parse(requests[0].send.mock.calls[0][0])).toEqual({ analytics: true, async: true, crumb: 'csrf-token' })
-  expect(document.querySelector('script').src).toBe('https://www.googletagmanager.com/gtm.js?id=GTM-TEST123')
-  expect(globalThis.dataLayer[0].event).toBe('gtm.js')
-  const confirmation = document.querySelector('.js-cookies-accepted')
-  expect(confirmation.hidden).toBe(false)
-  expect(document.activeElement).toBe(confirmation)
-  confirmation.dispatchEvent(new Event('blur'))
-  expect(confirmation.hasAttribute('tabindex')).toBe(false)
-  requests[0].status = 204
-  requests[0].onload()
-  expect(submit).not.toHaveBeenCalled()
-  confirmation.querySelector('button').click()
-  expect(document.querySelector('.js-cookies-banner').hidden).toBe(true)
+describe('GTM loading', () => {
+  test('loads the container only once with its start event', () => {
+    loadGoogleTagManager('GTM-TEST123')
+    loadGoogleTagManager('GTM-TEST123')
+    expect(document.querySelectorAll('script')).toHaveLength(1)
+    expect(document.querySelector('script').src).toBe('https://www.googletagmanager.com/gtm.js?id=GTM-TEST123')
+    expect(document.querySelector('script').async).toBe(true)
+    expect(globalThis.dataLayer).toEqual([{ 'gtm.start': expect.any(Number), event: 'gtm.js' }])
+  })
+  test.each(['', undefined, 'G-123', 'GTM-<script>', 'gtm-test'])('rejects invalid container %s', (id) => {
+    loadGoogleTagManager(id)
+    expect(document.querySelector('script')).toBeNull()
+  })
 })
 
-test('reject removes analytics cookies while keeping essential cookies', () => {
-  renderBanner()
-  document.cookie = '_ga=tracking; path=/'
-  document.cookie = '_gid=tracking; path=/'
-  document.cookie = 'essential=keep; path=/'
-  document.querySelector('.js-cookies-button-reject').click()
-  expect(document.cookie).not.toContain('_ga=')
-  expect(document.cookie).not.toContain('_gid=')
-  expect(document.cookie).toContain('essential=keep')
-  expect(document.querySelector('script')).toBeNull()
-  expect(JSON.parse(requests[0].send.mock.calls[0][0]).analytics).toBe(false)
-  requests[0].status = 200
-  requests[0].onload()
-  expect(submit).not.toHaveBeenCalled()
-  document.querySelector('.js-cookies-rejected .js-hide').click()
-  expect(document.querySelector('.js-cookies-banner').hidden).toBe(true)
+describe('analytics cleanup', () => {
+  test('deletes every analytics family and preserves other cookies', () => {
+    for (const name of ['_ga', '_ga_ABC', '_gid', '_gat', '_gat_ABC', '_dc_gtm_ABC', 'essential']) {
+      document.cookie = `${name}=value; path=/`
+    }
+    removeAnalyticsCookies()
+    expect(document.cookie).toBe('essential=value')
+  })
+  test('attempts expiry on the host and every parent domain', () => {
+    vi.spyOn(globalThis, 'location', 'get').mockReturnValue({ hostname: 'service.example.gov.uk' })
+    const setter = vi.spyOn(document, 'cookie', 'set')
+    document.cookie = '_ga=test; path=/'
+    setter.mockClear()
+    removeAnalyticsCookies()
+    for (const domain of ['service.example.gov.uk', '.service.example.gov.uk', '.example.gov.uk', '.gov.uk']) {
+      expect(setter).toHaveBeenCalledWith(expect.stringContaining(`domain=${domain}`))
+    }
+  })
 })
 
-test.each(['', 'https://untrusted.example/script.js'])('does not load an invalid GTM key: %s', (key) => {
-  renderBanner(key)
-  document.querySelector('.js-cookies-button-accept').click()
-  expect(document.querySelector('script')).toBeNull()
+describe('banner submissions', () => {
+  test('is safe on pages without a banner', () => {
+    expect(() => initCookieBanner()).not.toThrow()
+  })
+
+  test.each([true, false])('saves choice %s before confirming and loading tracking', async (analytics) => {
+    document.body.innerHTML = bannerHtml
+    document.cookie = '_ga=old; path=/'
+    const append = vi.spyOn(document.head, 'appendChild')
+    initCookieBanner()
+    document.querySelector(`button[value="${analytics}"]`).click()
+    expect(document.querySelector('.js-question-banner').hidden).toBe(false)
+    expect(document.querySelector('script')).toBeNull()
+    await vi.waitFor(() => expect(document.querySelector('.js-question-banner').hidden).toBe(true))
+    expect(globalThis.fetch).toHaveBeenCalledWith(expect.stringContaining('/cookies'), {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ analytics, async: true, crumb: 'token' })
+    })
+    expect(globalThis.gtag).toHaveBeenCalledWith('consent', 'update', {
+      analytics_storage: analytics ? 'granted' : 'denied',
+      ad_storage: 'denied',
+      ad_user_data: 'denied',
+      ad_personalization: 'denied'
+    })
+    const confirmation = document.querySelector(analytics ? '.js-cookies-accepted' : '.js-cookies-rejected')
+    expect(confirmation.hidden).toBe(false)
+    expect(document.activeElement).toBe(confirmation)
+    confirmation.dispatchEvent(new Event('blur'))
+    expect(confirmation.hasAttribute('tabindex')).toBe(false)
+    expect(Boolean(document.querySelector('script'))).toBe(analytics)
+    if (analytics) {
+      expect(globalThis.gtag.mock.invocationCallOrder[0]).toBeLessThan(append.mock.invocationCallOrder[0])
+    }
+    if (!analytics) expect(document.cookie).not.toContain('_ga')
+    confirmation.querySelector('button').click()
+    expect(document.querySelector('.js-cookies-container').hidden).toBe(true)
+  })
+
+  test.each(['network', 'http'])('falls back to a native form with the chosen preference after %s failure', async (failure) => {
+    document.body.innerHTML = bannerHtml
+    if (failure === 'network') globalThis.fetch.mockRejectedValue(new Error('offline'))
+    else globalThis.fetch.mockResolvedValue({ ok: false })
+    const form = document.querySelector('form')
+    const submit = vi.spyOn(form, 'submit').mockImplementation(() => {})
+    initCookieBanner()
+    document.querySelector('button[value="false"]').click()
+    await vi.waitFor(() => expect(submit).toHaveBeenCalledOnce())
+    expect(form.querySelector('input[name="analytics"]').value).toBe('false')
+    expect(globalThis.gtag).not.toHaveBeenCalled()
+    expect(document.querySelector('.js-question-banner').hidden).toBe(false)
+    expect(document.querySelector('script')).toBeNull()
+  })
+
+  test('does not intercept submissions without a valid choice', () => {
+    document.body.innerHTML = bannerHtml
+    initCookieBanner()
+    const event = new Event('submit', { cancelable: true })
+    document.querySelector('form').dispatchEvent(event)
+    expect(event.defaultPrevented).toBe(false)
+    expect(globalThis.fetch).not.toHaveBeenCalled()
+  })
 })
 
-test.each(['http', 'network'])('falls back to a native POST on %s failure', (failure) => {
-  renderBanner()
-  document.querySelector('.js-cookies-button-accept').click()
-  if (failure === 'http') {
-    requests[0].status = 403
-    requests[0].onload()
-  } else {
-    requests[0].onerror()
-  }
-  expect(submit).toHaveBeenCalledOnce()
+describe('page initialisation', () => {
+  test('cleans up cookies when no banner or GTM is present', () => {
+    document.cookie = '_ga=test; path=/'
+    initCookiesPage()
+    expect(document.cookie).not.toContain('_ga')
+  })
+  test.each(['banner', 'gtm'])('preserves cookies when %s is present', (mode) => {
+    document.cookie = '_ga=test; path=/'
+    if (mode === 'banner') document.body.innerHTML = bannerHtml
+    else loadGoogleTagManager('GTM-TEST123')
+    initCookiesPage()
+    expect(document.cookie).toContain('_ga')
+  })
+  test('reloads a restored page to refresh consent', () => {
+    const reload = vi.fn()
+    vi.spyOn(globalThis, 'location', 'get').mockReturnValue({ hostname: 'localhost', reload })
+    let handler
+    vi.spyOn(globalThis, 'addEventListener').mockImplementation((name, callback) => { if (name === 'pageshow') handler = callback })
+    initCookiesPage()
+    document.cookie = '_ga=test; path=/'
+    handler({ persisted: false })
+    expect(reload).not.toHaveBeenCalled()
+    handler({ persisted: true })
+    expect(reload).toHaveBeenCalledOnce()
+    expect(document.cookie).not.toContain('_ga')
+  })
 })
 
-test('cleans stale analytics cookies only without a banner or GTM', () => {
-  document.cookie = '_ga=tracking; path=/'
-  renderBanner()
-  cookies.cleanupStaleCookies()
-  expect(document.cookie).toContain('_ga=')
-  document.body.innerHTML = ''
-  document.head.innerHTML = '<script src="https://www.googletagmanager.com/gtm.js?id=GTM-TEST123"></script>'
-  cookies.cleanupStaleCookies()
-  expect(document.cookie).toContain('_ga=')
-  document.head.innerHTML = ''
-  cookies.cleanupStaleCookies()
-  expect(document.cookie).not.toContain('_ga=')
-})
+describe('consent updates', () => {
+  test('is safe when no Google tag is configured', () => {
+    vi.stubGlobal('gtag', undefined)
+    expect(() => updateGoogleConsent(true)).not.toThrow()
+  })
 
-test('initialises on pages without a banner and clears tracking on a cached restore', () => {
-  const reload = vi.fn()
-  vi.stubGlobal('location', { hostname: 'service.example.gov.uk', reload })
-  const addEventListener = vi.spyOn(globalThis, 'addEventListener')
-  cookies.init()
-  const onPageShow = addEventListener.mock.calls.find(([type]) => type === 'pageshow')[1]
-  onPageShow({ persisted: false })
-  expect(reload).not.toHaveBeenCalled()
-  document.cookie = '_ga=tracking; path=/'
-  onPageShow({ persisted: true })
-  expect(document.cookie).not.toContain('_ga=')
-  expect(reload).toHaveBeenCalledOnce()
+  test.each([true, false])('preference form updates consent to %s before navigation', (analytics) => {
+    document.body.innerHTML = `<form id="cookies-form"><input name="analytics" value="${analytics}" type="radio" checked></form>`
+    initCookiesPage()
+    document.cookie = '_ga=test; path=/'
+    document.querySelector('form').dispatchEvent(new Event('submit'))
+    expect(globalThis.gtag).toHaveBeenCalledWith('consent', 'update', {
+      analytics_storage: analytics ? 'granted' : 'denied',
+      ad_storage: 'denied',
+      ad_user_data: 'denied',
+      ad_personalization: 'denied'
+    })
+    expect(document.cookie.includes('_ga')).toBe(analytics)
+  })
+
+  test('leaves consent unchanged when no preference is selected', () => {
+    document.body.innerHTML = '<form id="cookies-form"></form>'
+    initCookiesPage()
+    document.querySelector('form').dispatchEvent(new Event('submit'))
+    expect(globalThis.gtag).not.toHaveBeenCalled()
+  })
 })

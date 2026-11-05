@@ -69,9 +69,15 @@
             <td class="govuk-table__cell">Saves your cookie consent settings</td>
             <td class="govuk-table__cell">1 year</td>
           </tr>
+          <tr class="govuk-table__row">
+            <td class="govuk-table__cell">crumb</td>
+            <td class="govuk-table__cell">Protects cookie preference submissions</td>
+            <td class="govuk-table__cell">Session</td>
+          </tr>
         </tbody>
       </table>
 
+      {% if googleTagManagerKey %}
       <h2 class="govuk-heading-m">Analytics cookies (optional)</h2>
 
       <p class="govuk-body">With your permission, we use Google Analytics to collect data about how you use the service. This information helps us to improve our service.</p>
@@ -111,7 +117,7 @@
 
       <h2 class="govuk-heading-m">Change your cookie settings</h2>
 
-      <form action="/cookies" method="post" novalidate>
+      <form id="cookies-form" action="/cookies" method="post" novalidate>
         <input type="hidden" name="crumb" value="{{ crumb }}">
         <input type="hidden" name="async" value="false">
 
@@ -121,6 +127,7 @@
           Save cookie settings
         </button>
       </form>
+      {% endif %}
     </div>
   </div>
 {% endblock %}
