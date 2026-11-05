@@ -49,7 +49,7 @@ test.each(['GET', 'POST'])('OIDC callback creates a usable session and header fo
   const $ = load(page.payload)
   expect($('.defra-header__user-name').text()).toBe('Feedback User')
   expect($('.defra-header__sign-out').attr('href')).toBe('/auth/logout')
-  expect($('.defra-header__service-name').text()).toBe('Defra Group Land Model Feedback')
+  expect($('.defra-header__service-name').text()).toBe('Defra Group Land Model Issue Reporting')
 
   const refresh = vi.spyOn(server.oidc, 'refresh').mockResolvedValue({ access_token: 'new-access', refresh_token: 'new-refresh', expires_in: 3600 })
   const state = page.request.state[cookieName]

@@ -25,7 +25,7 @@ describe('#errors', () => {
     })
 
     expect(result).toEqual(
-      expect.stringContaining('Page not found | Defra Group Land Model Feedback')
+      expect.stringContaining('Page not found | Defra Group Land Model Issue Reporting')
     )
     expect(statusCode).toBe(statusCodes.notFound)
   })

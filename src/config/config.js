@@ -50,7 +50,7 @@ export const config = convict({
   serviceDisplayName: {
     doc: 'Human-readable service name shown in the UI',
     format: String,
-    default: 'Defra Group Land Model Feedback'
+    default: 'Defra Group Land Model Issue Reporting'
   },
   root: {
     doc: 'Project root',

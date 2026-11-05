@@ -72,7 +72,7 @@ describe('context and cache', () => {
               href: '/about'
             }
           ],
-          serviceName: 'Defra Group Land Model Feedback',
+          serviceName: 'Defra Group Land Model Issue Reporting',
           serviceUrl: '/'
         })
       })
@@ -161,7 +161,7 @@ describe('context and cache', () => {
               href: '/about'
             }
           ],
-          serviceName: 'Defra Group Land Model Feedback',
+          serviceName: 'Defra Group Land Model Issue Reporting',
           serviceUrl: '/'
         })
       })
