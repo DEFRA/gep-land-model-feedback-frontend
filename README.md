@@ -19,6 +19,7 @@ Core delivery platform Node.js Frontend Template.
   - [Linting and Formatting](#linting-and-formatting)
   - [Testing](#testing)
   - [CI/CD](#cicd)
+- [GeoNetwork dataset catalogue](#geonetwork-dataset-catalogue)
 - [Authentication](#authentication)
 - [Docker](#docker)
   - [Development image](#development-image)
@@ -192,6 +193,58 @@ Pushes to a `release/*` branch trigger [Publish Release](.github/workflows/publi
 When a PR is merged into `main`, the [Auto Back-merge](.github/workflows/auto-back-merge.yml) workflow opens a PR to merge `main` back into `develop`. Review and merge it to keep develop up to date.
 
 Hotfixes are handled by the [Publish Hot Fix](.github/workflows/publish-hotfix.yml) workflow, triggered manually from a hotfix branch. Each trigger builds a new patch version (e.g. `0.2.1`, `0.2.2`) so fixes can be re-tested before merging. Deploy hotfix artifacts via the CDP portal.
+
+## GeoNetwork dataset catalogue
+
+The helpers in `src/server/datasets/geonetwork/` reuse the viewer's field mapping,
+accessors and test fixture from commit `ac0c7b3441299715149d174e8a8ef21aec9fa349`.
+They call the same `POST /search/records/_search` GeoNetwork endpoint. Requests use
+Node 24's native fetch, a 10-second timeout, and the shared external-call logging
+helper. No additional npm package or public route is needed.
+
+Set these variables in `.env` locally or through deployment configuration:
+
+```dotenv
+GEONETWORK_API_URL=http://localhost:8080/geonetwork/srv/api
+GEONETWORK_DATASET_CATEGORIES=landModelGrids,landModelParcels
+```
+
+Categories are exact, case-sensitive **catalogue category IDs** (`cat.keyword`),
+not ISO topic categories (`cl_topic`) or INSPIRE themes. Matching any configured
+category includes the dataset. Comma-separated entries are trimmed, blank entries
+ignored and duplicates removed. Leave the category variable unset or empty for
+all catalogue categories. Metadata templates are always excluded. The viewer's
+hard-coded excluded categories are deliberately not carried over: this application
+can explicitly include reference datasets or land models when required.
+
+```javascript
+import {
+  listDatasets,
+  queryDatasets,
+  getDatasetMetadata
+} from '#/server/datasets/geonetwork/catalogue.js'
+
+// All matching datasets, suitable for a future selector.
+const datasets = await listDatasets()
+const items = datasets.map(({ id, title }) => ({ value: id, text: title || id }))
+
+// Optional title/abstract search, returning one page and its total.
+const { results, total } = await queryDatasets('soil', { from: 0 })
+
+// Optional detail lookup; returns null for missing or filtered-out records.
+const metadata = datasets.length ? await getDatasetMetadata(datasets[0].id) : null
+```
+
+Summaries contain `{ id, title, inspireTheme }`. An empty query lists results by
+title; text search sorts by relevance, matching the viewer. The category filter
+applies to every page and to detail lookups. `listDatasets` retrieves pages of up
+to 500 records until the full result total is reached. Catalogue-side search-window
+limits, HTTP/network errors, timeouts, invalid responses and incomplete/overlapping
+pages reject the call rather than silently producing a partial dropdown. Callers
+should handle these errors when the selection feature is implemented.
+
+GeoNetwork is provided separately, as in the viewer; this change does not add a
+GeoNetwork server to Compose. The dropdown UI is not implemented yet.
 
 ## Authentication
 

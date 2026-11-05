@@ -333,6 +333,20 @@ export const config = convict({
       }
     }
   },
+  geonetwork: {
+    apiUrl: {
+      doc: 'GeoNetwork REST API base URL',
+      format: 'url',
+      default: 'http://localhost:8080/geonetwork/srv/api',
+      env: 'GEONETWORK_API_URL'
+    },
+    datasetCategories: {
+      doc: 'Comma-separated catalogue category IDs; match any, or leave empty for all categories',
+      format: Array,
+      default: [],
+      env: 'GEONETWORK_DATASET_CATEGORIES'
+    }
+  },
   googleAnalytics: {
     googleTagManagerKey: {
       doc: 'Google Tag Manager container ID (e.g. GTM-XXXXXXXX)',
