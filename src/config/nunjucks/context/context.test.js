@@ -2,6 +2,7 @@ import { vi } from 'vitest'
 
 const mockReadFileSync = vi.fn()
 const mockLoggerError = vi.fn()
+const mockLoggerWarn = vi.fn()
 
 vi.mock('node:fs', async () => {
   const nodeFs = await import('node:fs')
@@ -12,8 +13,19 @@ vi.mock('node:fs', async () => {
   }
 })
 vi.mock('../../../server/common/helpers/logging/logger.js', () => ({
-  createLogger: () => ({ error: (...args) => mockLoggerError(...args) })
+  createLogger: () => ({ error: mockLoggerError, warn: mockLoggerWarn })
 }))
+vi.mock(import('#/config/config.js'), async (importOriginal) => {
+  const originalModule = await importOriginal()
+  return {
+    config: {
+      get (key) {
+        if (key === 'isProduction') return true
+        return originalModule.config.get(key)
+      }
+    }
+  }
+})
 
 describe('context and cache', () => {
   beforeEach(() => {
@@ -23,9 +35,9 @@ describe('context and cache', () => {
   })
 
   describe('#context', () => {
-    const mockRequest = { path: '/', state: {}, query: {} }
+    const mockRequest = { path: '/' }
 
-    describe('When webpack manifest file read succeeds', () => {
+    describe('When Vite manifest file read succeeds', () => {
       let contextImport
       let contextResult
 
@@ -36,15 +48,15 @@ describe('context and cache', () => {
       beforeEach(() => {
         // Return JSON string
         mockReadFileSync.mockReturnValue(`{
-        "application.js": "javascripts/application.js",
-        "stylesheets/application.scss": "stylesheets/application.css"
+        "src/client/javascripts/application.js": { "file": "assets/application-123.js" },
+        "src/client/stylesheets/application.scss": { "file": "assets/application-123.css" }
       }`)
 
         contextResult = contextImport.context(mockRequest)
       })
 
       test('Should provide expected context', () => {
-        expect(contextResult).toEqual({
+        expect(contextResult).toMatchObject({
           assetPath: '/public/assets',
           breadcrumbs: [],
           getAssetPath: expect.any(Function),
@@ -60,21 +72,15 @@ describe('context and cache', () => {
               href: '/about'
             }
           ],
-          cspNonce: null,
-          gtmContainerId: null,
-          cookieConsentSet: false,
-          cookieAction: null,
-          hasAnalyticsConsent: false,
-          currentUrl: '/',
-          serviceName: 'gep-land-model-feedback-frontend',
+          serviceName: 'Defra Group Land Model Feedback',
           serviceUrl: '/'
         })
       })
 
       describe('With valid asset path', () => {
         test('Should provide expected asset path', () => {
-          expect(contextResult.getAssetPath('application.js')).toBe(
-            '/public/javascripts/application.js'
+          expect(contextResult.getAssetPath('src/client/javascripts/application.js')).toBe(
+            '/public/assets/application-123.js'
           )
         })
       })
@@ -88,7 +94,7 @@ describe('context and cache', () => {
       })
     })
 
-    describe('When webpack manifest file read fails', () => {
+    describe('When Vite manifest file read fails', () => {
       let contextImport
 
       beforeAll(async () => {
@@ -101,20 +107,19 @@ describe('context and cache', () => {
         contextImport.context(mockRequest)
       })
 
-      test('Should log that the Webpack Manifest file is not available', () => {
+      test('Should log that the Vite Manifest file is not available', () => {
         expect(mockLoggerError).toHaveBeenCalledWith(
-          expect.any(Error),
-          'Webpack assets-manifest.json not found'
+          'Vite manifest.json not found'
         )
       })
     })
   })
 
   describe('#context cache', () => {
-    const mockRequest = { path: '/', state: {}, query: {} }
+    const mockRequest = { path: '/' }
     let contextResult
 
-    describe('Webpack manifest file cache', () => {
+    describe('Vite manifest file cache', () => {
       let contextImport
 
       beforeAll(async () => {
@@ -124,8 +129,8 @@ describe('context and cache', () => {
       beforeEach(() => {
         // Return JSON string
         mockReadFileSync.mockReturnValue(`{
-        "application.js": "javascripts/application.js",
-        "stylesheets/application.scss": "stylesheets/application.css"
+        "src/client/javascripts/application.js": { "file": "assets/application-123.js" },
+        "src/client/stylesheets/application.scss": { "file": "assets/application-123.css" }
       }`)
 
         contextResult = contextImport.context(mockRequest)
@@ -140,7 +145,7 @@ describe('context and cache', () => {
       })
 
       test('Should provide expected context', () => {
-        expect(contextResult).toEqual({
+        expect(contextResult).toMatchObject({
           assetPath: '/public/assets',
           breadcrumbs: [],
           getAssetPath: expect.any(Function),
@@ -156,13 +161,7 @@ describe('context and cache', () => {
               href: '/about'
             }
           ],
-          cspNonce: null,
-          gtmContainerId: null,
-          cookieConsentSet: false,
-          cookieAction: null,
-          hasAnalyticsConsent: false,
-          currentUrl: '/',
-          serviceName: 'gep-land-model-feedback-frontend',
+          serviceName: 'Defra Group Land Model Feedback',
           serviceUrl: '/'
         })
       })

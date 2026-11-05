@@ -1,92 +1,54 @@
 version: '3.4'
 services:
-
-  localstack:
-    image: localstack/localstack:3.0.2
+  floci:
+    image: hectorvent/floci:latest-aws
     ports:
-      - '4566:4566' # LocalStack Gateway
-      - '4510-4559:4510-4559' # external services port range
+      - '4566:4566'
     env_file:
       - 'compose/aws.env'
     environment:
-      DEBUG: ${DEBUG:-1}
-      LS_LOG: WARN # Localstack DEBUG Level
-      SERVICES: s3,sqs,sns,firehose
-      LOCALSTACK_HOST: 127.0.0.1
+      FLOCI_DEFAULT_REGION: eu-west-2
     volumes:
-      - '${TMPDIR:-/tmp}/localstack:/var/lib/localstack'
-      - ./compose/start-localstack.sh:/etc/localstack/init/ready.d/start-localstack.sh
-    healthcheck:
-      test: ['CMD', 'curl', 'localhost:4566']
-      interval: 5s
-      start_period: 5s
-      retries: 3
+      - ./compose/floci/start.d:/etc/floci/init/start.d:ro
     networks:
       - cdp-tenant
 
   redis:
     image: redis:7.2.3-alpine3.18
     ports:
-      - '6379:6379'
-    restart: always
+      - '6382:6379'
+    networks:
+      - cdp-tenant
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.6.2
+    command: start-dev --import-realm --http-port=8081 --http-relative-path=/land-model-feedback
+    ports:
+      - '8084:8081'
+    environment:
+      KC_HOSTNAME: http://localhost:8084/land-model-feedback
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+    volumes:
+      - ./compose/keycloak/defra-local-realm.json:/opt/keycloak/data/import/defra-local-realm.json
     networks:
       - cdp-tenant
 
   mongodb:
-    image: mongo:6.0.13
+    image: mongo:7.0.28
     networks:
       - cdp-tenant
     ports:
       - '27017:27017'
     volumes:
+      - ./compose/mongo:/docker-entrypoint-initdb.d:ro
       - mongodb-data:/data
-    restart: always
-
-################################################################################
-
-  your-frontend:
-    build: ./
-    ports:
-      - '3000:3000'
-    links:
-      - 'localstack:localstack'
-      - 'redis:redis'
-    depends_on:
-      localstack:
-        condition: service_healthy
-      redis:
-        condition: service_started
-    env_file:
-      - 'compose/aws.env'
-    environment:
-      PORT: 3000
-      NODE_ENV: development
-      REDIS_HOST: redis
-      LOCALSTACK_ENDPOINT: http://localstack:4566
-      USE_SINGLE_INSTANCE_CACHE: true
-    networks:
-      - cdp-tenant
-
-  # your-backend:
-  #   image: defradigital/your-backend:${YOUR_BACKEND_VERSION:-latest}
-  #   ports:
-  #     - '3555:3555'
-  #   links:
-  #     - 'localstack:localstack'
-  #     - 'mongodb:mongodb'
-  #   depends_on:
-  #     localstack:
-  #       condition: service_healthy
-  #     mongodb:
-  #       condition: service_started
-  #   env_file:
-  #     - 'compose/aws.env'
-  #   environment:
-  #     PORT: 3555
-  #     NODE_ENV: development
-  #     LOCALSTACK_ENDPOINT: http://localstack:4566
-  #   networks:
-  #     - cdp-tenant
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.hello().ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
 ################################################################################
 

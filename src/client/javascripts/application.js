@@ -6,14 +6,13 @@ import {
   Radios,
   SkipLink
 } from 'govuk-frontend'
+import { initCookieBanner, initCookiesPage } from './cookies.js'
 
-import { initCookieBanner, initCookiesPage } from './cookie-consent.js'
+initCookieBanner()
+initCookiesPage()
 
 createAll(Button)
 createAll(Checkboxes)
 createAll(ErrorSummary)
 createAll(Radios)
 createAll(SkipLink)
-
-initCookieBanner()
-initCookiesPage()

@@ -1,6 +1,6 @@
 /**
  * Validates and returns a safe redirect URL.
- * @param {string} url - The redirect URL to validate
+ * @param {unknown} url - The redirect URL to validate
  * @returns {string} Safe relative path, or '/' if invalid
  */
 export function getSafeRedirect (url) {
@@ -14,6 +14,12 @@ export function getSafeRedirect (url) {
       // Origin mismatch - url resolves to an external host
       return '/'
     }
+
+    // Dot segments can normalise to //host, e.g. /.//evil.com
+    if (parsed.pathname.startsWith('//')) {
+      return '/'
+    }
+
     return parsed.pathname + parsed.search
   } catch {
     return '/'

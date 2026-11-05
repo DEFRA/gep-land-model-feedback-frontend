@@ -21,24 +21,17 @@ updates:
         patterns:
           - '@babel/*'
           - '@vitest/*'
-          - 'autoprefixer'
-          - 'babel-loader'
           - 'cheerio'
-          - 'clean-webpack-plugin'
-          - 'copy-webpack-plugin'
           - 'cssnano'
           - 'cssnano-*'
           - 'husky'
           - 'nodemon'
           - 'npm-run-all'
-          - 'postcss-*'
           - 'sass-*'
-          - 'source-map-loader'
-          - 'terser-webpack-plugin'
+          - 'vite'
+          - '@defra/hapi-connect'
           - 'vitest'
           - 'vitest-*'
-          - 'webpack'
-          - 'webpack-*'
 
       lint:
         patterns:

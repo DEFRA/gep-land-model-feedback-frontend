@@ -2,27 +2,37 @@ import path from 'node:path'
 import hapi from '@hapi/hapi'
 import Scooter from '@hapi/scooter'
 
-import { router } from './router.js'
+import { router } from './plugins/router.js'
 import { config } from '../config/config.js'
-import { pulse } from './common/helpers/pulse.js'
+import { pulse } from './plugins/pulse.js'
 import { catchAll } from './common/helpers/errors.js'
 import { nunjucksConfig } from '../config/nunjucks/nunjucks.js'
-import { setupProxy } from './common/helpers/proxy/setup-proxy.js'
-import { requestTracing } from './common/helpers/request-tracing.js'
+import { requestTracing } from './plugins/request-tracing.js'
 import { requestLogger } from './common/helpers/logging/request-logger.js'
-import { sessionCache } from './common/helpers/session-cache/session-cache.js'
+import { sessionCache } from './plugins/session-cache.js'
 import { getCacheEngine } from './common/helpers/session-cache/cache-engine.js'
 import { secureContext } from '@defra/hapi-secure-context'
-import { contentSecurityPolicy } from './common/helpers/content-security-policy.js'
+import { contentSecurityPolicy } from './plugins/content-security-policy.js'
 import { securityHeaders } from './common/helpers/security-headers.js'
+import { cookieConsent } from './plugins/cookie-consent.js'
+import { csrf } from './common/helpers/csrf.js'
 import { metrics } from '@defra/cdp-metrics'
 
+import { setupCaches } from './common/helpers/session/setup-caches.js'
+import { getUserSession } from './common/helpers/auth/decorators.js'
+import { oidcClient } from './common/helpers/auth/oidc-client.js'
+import { federatedOidc } from './common/helpers/auth/federated-oidc.js'
+import { cognitoClientAssertion } from './common/helpers/auth/client-assertion/cognito.js'
+import { mockClientAssertion } from './common/helpers/auth/client-assertion/mock.js'
+import { sessionStrategy } from './common/helpers/auth/session-strategy.js'
+import { setCacheHeaders } from './common/helpers/cache-headers.js'
+
 export async function createServer () {
-  setupProxy()
   const server = hapi.server({
     host: config.get('host'),
     port: config.get('port'),
     routes: {
+      auth: { mode: 'required' },
       validate: {
         options: {
           abortEarly: false
@@ -59,21 +69,38 @@ export async function createServer () {
       strictHeader: false
     }
   })
+  setupCaches(server)
+  server.decorate('request', 'getUserSession', getUserSession)
+
   await server.register([
     requestLogger,
     requestTracing,
     metrics,
     secureContext,
-    pulse,
+    pulse
+  ])
+
+  const credentialProvider = config.get('cognito.enabled')
+    ? cognitoClientAssertion
+    : mockClientAssertion
+
+  await server.register([
     sessionCache,
+    credentialProvider,
+    oidcClient,
+    federatedOidc,
+    sessionStrategy,
     nunjucksConfig,
     Scooter,
     contentSecurityPolicy,
     securityHeaders,
-    router // Register all the controllers/routes defined in src/server/router.js
+    csrf,
+    cookieConsent,
+    router // Register all the controllers/routes defined in src/server/plugins/router.js
   ])
 
   server.ext('onPreResponse', catchAll)
+  server.ext('onPreResponse', setCacheHeaders)
 
   return server
 }

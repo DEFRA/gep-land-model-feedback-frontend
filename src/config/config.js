@@ -6,7 +6,8 @@ import convictFormatWithValidator from 'convict-format-with-validator'
 
 const dirname = path.dirname(fileURLToPath(import.meta.url))
 
-const fourHoursMs = 14400000
+const eightHoursMs = 28800000
+const oneDayMs = 86400000
 const oneWeekMs = 604800000
 
 const isProduction = process.env.NODE_ENV === 'production'
@@ -32,7 +33,7 @@ export const config = convict({
   port: {
     doc: 'The port to bind.',
     format: 'port',
-    default: 3000,
+    default: isDevelopment ? 3004 : 3000,
     env: 'PORT'
   },
   staticCacheTimeout: {
@@ -45,6 +46,11 @@ export const config = convict({
     doc: 'Applications Service Name',
     format: String,
     default: 'gep-land-model-feedback-frontend'
+  },
+  serviceDisplayName: {
+    doc: 'Human-readable service name shown in the UI',
+    format: String,
+    default: 'Defra Group Land Model Feedback'
   },
   root: {
     doc: 'Project root',
@@ -72,6 +78,12 @@ export const config = convict({
     format: Boolean,
     default: isTest
   },
+  appBaseUrl: {
+    doc: 'Application base URL',
+    format: String,
+    default: 'http://localhost:3004',
+    env: 'APP_BASE_URL'
+  },
   log: {
     enabled: {
       doc: 'Is logging enabled',
@@ -96,7 +108,8 @@ export const config = convict({
       format: Array,
       default: isProduction
         ? ['req.headers.authorization', 'req.headers.cookie', 'res.headers']
-        : []
+        : [],
+      env: 'LOG_REDACT'
     }
   },
   httpProxy: {
@@ -117,27 +130,39 @@ export const config = convict({
       engine: {
         doc: 'backend cache is written to',
         format: ['redis', 'memory'],
-        default: isProduction ? 'redis' : 'memory',
+        default: isTest ? 'memory' : 'redis',
         env: 'SESSION_CACHE_ENGINE'
       },
       name: {
-        doc: 'server side session cache name',
+        doc: 'Server-side session cache name, also used for the Yar session cookie',
         format: String,
-        default: 'session',
+        default: isDevelopment ? 'landModelFeedbackSessionCookie' : 'session',
         env: 'SESSION_CACHE_NAME'
       },
       ttl: {
         doc: 'server side session cache ttl',
         format: Number,
-        default: fourHoursMs,
+        default: oneDayMs,
         env: 'SESSION_CACHE_TTL'
+      },
+      segment: {
+        doc: 'Isolate cached items within the cache partition',
+        format: String,
+        default: 'session',
+        env: 'SESSION_CACHE_SEGMENT'
       }
     },
     cookie: {
+      name: {
+        doc: 'Login cookie name. Use distinct names for apps sharing a hostname.',
+        format: String,
+        default: isDevelopment ? 'landModelFeedbackUserSessionCookie' : 'userSessionCookie',
+        env: 'SESSION_COOKIE_NAME'
+      },
       ttl: {
         doc: 'Session cookie ttl',
         format: Number,
-        default: fourHoursMs,
+        default: eightHoursMs,
         env: 'SESSION_COOKIE_TTL'
       },
       password: {
@@ -156,6 +181,12 @@ export const config = convict({
     }
   },
   redis: {
+    port: {
+      doc: 'Redis cache port',
+      format: 'port',
+      default: isDevelopment ? 6382 : 6379,
+      env: 'REDIS_PORT'
+    },
     host: {
       doc: 'Redis cache host',
       format: String,
@@ -194,6 +225,43 @@ export const config = convict({
       env: 'REDIS_TLS'
     }
   },
+  oidc: {
+    clientId: {
+      doc: 'OIDC client ID',
+      format: String,
+      env: 'OIDC_CLIENT_ID',
+      default: 'd02ee02c-b8da-483d-8a4e-29de7db48b03'
+    },
+    clientSecret: {
+      doc: 'OIDC client secret, shared between mock credential provider and local Keycloak. Not used in deployed environments.',
+      format: String,
+      sensitive: true,
+      env: 'OIDC_CLIENT_SECRET',
+      default: 'local-dev-secret'
+    },
+    wellKnownConfigurationUrl: {
+      doc: 'OIDC .well-known configuration URL',
+      format: String,
+      env: 'OIDC_WELL_KNOWN_CONFIGURATION_URL',
+      // A product-specific Keycloak path keeps its cookies separate from other local apps.
+      default: 'http://localhost:8084/land-model-feedback/realms/defra-local/.well-known/openid-configuration'
+    },
+  },
+  cognito: {
+    enabled: {
+      doc: 'Use AWS Cognito for client assertions (false uses local JWT signer)',
+      format: Boolean,
+      default: false,
+      env: 'COGNITO_ENABLED'
+    },
+    identityPoolId: {
+      doc: 'AWS Cognito identity pool ID',
+      format: String,
+      env: 'COGNITO_IDENTITY_POOL_ID',
+      nullable: true,
+      default: null
+    }
+  },
   nunjucks: {
     watch: {
       doc: 'Reload templates when they are changed.',
@@ -206,21 +274,85 @@ export const config = convict({
       default: isDevelopment
     }
   },
-  googleTagManager: {
-    containerId: {
-      doc: 'Google Tag Manager container ID',
-      format: String,
-      nullable: true,
-      default: null,
-      env: 'GTM_CONTAINER_ID'
-    }
-  },
   tracing: {
     header: {
       doc: 'Which header to track',
       format: String,
       default: 'x-cdp-request-id',
       env: 'TRACING_HEADER'
+    }
+  },
+  cookieConsent: {
+    name: {
+      doc: 'Name of cookie that stores the user consent preference',
+      format: String,
+      default: `${encodeURIComponent('gep-land-model-feedback-frontend')}_policy`
+    },
+    policy: {
+      ignoreErrors: {
+        doc: 'Ignore invalid cookie encodings and reset consent safely',
+        format: Boolean,
+        default: true
+      },
+      isHttpOnly: {
+        doc: 'Only allow the server to read the consent policy cookie',
+        format: Boolean,
+        default: true
+      },
+      path: {
+        doc: 'Apply the consent policy to every service route',
+        format: String,
+        default: '/'
+      },
+      clearInvalid: {
+        doc: 'Clear the cookie if it fails validation (e.g. bad JSON)',
+        format: Boolean,
+        default: true
+      },
+      encoding: {
+        doc: 'Hapi cookie encoding — base64json automatically serialises objects',
+        format: String,
+        default: 'base64json'
+      },
+      isSameSite: {
+        doc: 'SameSite attribute — Lax allows the cookie on top-level navigations',
+        format: String,
+        default: 'Lax'
+      },
+      isSecure: {
+        doc: 'Secure flag — only send cookie over HTTPS in production',
+        format: Boolean,
+        default: isProduction
+      }
+    },
+    config: {
+      ttl: {
+        doc: 'Cookie time-to-live in milliseconds (1 year)',
+        format: 'nat',
+        default: 1000 * 60 * 60 * 24 * 365
+      }
+    }
+  },
+  geonetwork: {
+    apiUrl: {
+      doc: 'GeoNetwork REST API base URL',
+      format: 'url',
+      default: 'http://localhost:8080/geonetwork/srv/api',
+      env: 'GEONETWORK_API_URL'
+    },
+    datasetCategories: {
+      doc: 'Comma-separated catalogue category IDs; match any, or leave empty for all categories',
+      format: Array,
+      default: [],
+      env: 'GEONETWORK_DATASET_CATEGORIES'
+    }
+  },
+  googleAnalytics: {
+    googleTagManagerKey: {
+      doc: 'Google Tag Manager container ID (e.g. GTM-XXXXXXXX)',
+      format: String,
+      default: '',
+      env: 'GOOGLE_TAG_MANAGER_KEY'
     }
   }
 })

@@ -6,18 +6,36 @@
 {# Import custom components globally #}
 {% from "heading/macro.njk" import appHeading %}
 
-{% set mainClasses = "app-main-wrapper" %}
+{% set mainClasses = mainClasses | default("app-main-wrapper") %}
 
-{% block bodyStart %}
-  {% include "partials/cookie-banner.njk" %}
-  {% if gtmContainerId and hasAnalyticsConsent %}
-    <noscript><iframe src="https://www.googletagmanager.com/ns.html?id={{ gtmContainerId }}"
-    height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
-  {% endif %}
+{% block headIcons %}
+  <link rel="icon" sizes="48x48" href="{{ getAssetPath("node_modules/govuk-frontend/dist/govuk/assets/images/favicon.ico") }}">
+  <link rel="icon" sizes="any" href="{{ getAssetPath("node_modules/govuk-frontend/dist/govuk/assets/images/favicon.svg") }}" type="image/svg+xml" >
+  <link rel="mask-icon" href="{{ getAssetPath("node_modules/govuk-frontend/dist/govuk/assets/images/govuk-icon-mask.svg") }}" color="{{ themeColor }}">
+  <link rel="apple-touch-icon" href="{{ getAssetPath("node_modules/govuk-frontend/dist/govuk/assets/images/govuk-icon-180.png") }}">
+  <link rel="manifest" href="{{ getAssetPath("node_modules/govuk-frontend/dist/govuk/assets/manifest.json") }}">
 {% endblock %}
 
 {% block head %}
-  <link href="{{ getAssetPath('stylesheets/application.scss') }}" rel="stylesheet">
+  {% include "partials/google-tag-manager/consent.njk" %}
+  {% if cookiesPolicy.confirmed and cookiesPolicy.analytics %}
+    {% include "partials/google-tag-manager/head-content.njk" %}
+  {% endif %}
+
+  <link href="{{ getAssetPath('src/client/stylesheets/application.scss') }}" rel="stylesheet">
+{% endblock %}
+
+
+{% block bodyStart %}
+  {# Show banner only if user hasn't made a choice yet #}
+  {% if not cookiesPolicy.confirmed %}
+    {% include "partials/cookies/banner.njk" %}
+  {% endif %}
+
+  {# Only load GTM when user has accepted analytics cookies #}
+  {% if cookiesPolicy.confirmed and cookiesPolicy.analytics %}
+    {% include "partials/google-tag-manager/body-content.njk" %}
+  {% endif %}
 {% endblock %}
 
 {% block header %}
@@ -25,16 +43,23 @@
   <div class="defra-header__inner">
     <div class="defra-header__brand-group">
       <img
-        src="{{ getAssetPath('images/defra-logo.svg') }}"
+        src="{{ getAssetPath('src/client/images/defra-logo.svg') }}"
         alt="Department for Environment, Food &amp; Rural Affairs"
         class="defra-header__logo"
       />
       <a href="{{ serviceUrl | default('/') }}" class="defra-header__service-name">{{ serviceName }}</a>
     </div>
+    {% if user %}
+    <div class="defra-header__auth">
+      <span class="defra-header__user-name">{{ user.displayName }}</span>
+      <a class="govuk-link govuk-link--no-visited-state defra-header__sign-out" href="/auth/logout">Sign out</a>
+    </div>
+    {% endif %}
   </div>
 </header>
-{% include "partials/navigation.njk" %}
 {% endblock %}
+
+{% include "partials/navigation.njk" %}
 
 {% block pageTitle %}
   {{ pageTitle }} | {{ serviceName }}
@@ -55,5 +80,8 @@
 {% endblock %}
 
 {% block bodyEnd %}
-  <script type="module" src="{{ getAssetPath('application.js') }}"></script>
+  {% if isDevelopment %}
+    <script type="module" src="/public/@vite/client"></script>
+  {% endif %}
+  <script type="module" src="{{ getAssetPath('src/client/javascripts/application.js') }}"></script>
 {% endblock %}
