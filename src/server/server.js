@@ -2,23 +2,23 @@ import path from 'node:path'
 import hapi from '@hapi/hapi'
 import Scooter from '@hapi/scooter'
 
-import { router } from './router.js'
+import { router } from './plugins/router.js'
 import { config } from '../config/config.js'
-import { pulse } from './common/helpers/pulse.js'
+import { pulse } from './plugins/pulse.js'
 import { catchAll } from './common/helpers/errors.js'
 import { nunjucksConfig } from '../config/nunjucks/nunjucks.js'
-import { setupProxy } from './common/helpers/proxy/setup-proxy.js'
-import { requestTracing } from './common/helpers/request-tracing.js'
-import { requestLogger } from './common/helpers/logging/request-logger.js'
-import { sessionCache } from './common/helpers/session-cache/session-cache.js'
+import { requestTracing } from './plugins/request-tracing.js'
+import { requestLogger } from './plugins/request-logger.js'
+import { sessionCache } from './plugins/session-cache.js'
 import { getCacheEngine } from './common/helpers/session-cache/cache-engine.js'
 import { secureContext } from '@defra/hapi-secure-context'
-import { contentSecurityPolicy } from './common/helpers/content-security-policy.js'
+import { contentSecurityPolicy } from './plugins/content-security-policy.js'
 import { securityHeaders } from './common/helpers/security-headers.js'
+import { cookieConsent } from './plugins/cookie-consent.js'
+import { csrf } from './plugins/csrf.js'
 import { metrics } from '@defra/cdp-metrics'
 
 export async function createServer () {
-  setupProxy()
   const server = hapi.server({
     host: config.get('host'),
     port: config.get('port'),
@@ -70,7 +70,9 @@ export async function createServer () {
     Scooter,
     contentSecurityPolicy,
     securityHeaders,
-    router // Register all the controllers/routes defined in src/server/router.js
+    csrf,
+    cookieConsent,
+    router // Register all the controllers/routes defined in src/server/plugins/router.js
   ])
 
   server.ext('onPreResponse', catchAll)

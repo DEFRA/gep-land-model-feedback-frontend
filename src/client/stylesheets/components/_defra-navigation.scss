@@ -92,10 +92,7 @@
     padding-top: 0;
   }
 
-  &--current .app-subnav__link {
-    font-weight: bold;
-    text-decoration: none;
-  }
+
 }
 
 // ===== App sub-navigation (section navigation) =====
@@ -187,4 +184,9 @@
     color: $govuk-black;
     text-decoration: none;
   }
+}
+
+.app-subnav__section-item--current .app-subnav__link {
+  font-weight: bold;
+  text-decoration: none;
 }

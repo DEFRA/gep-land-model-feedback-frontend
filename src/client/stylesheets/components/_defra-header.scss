@@ -104,8 +104,7 @@
 // Hide label when input has focus or contains text
 .defra-header-search__wrapper:focus-within .defra-header-search__label,
 .defra-header-search__label--hidden {
-  // Use clip to hide but keep accessible
-  clip: rect(0 0 0 0);
+  // Hide visually while keeping the label accessible.
   clip-path: inset(50%);
   height: 1px;
   overflow: hidden;

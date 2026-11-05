@@ -17,10 +17,13 @@
   padding-bottom: 0;
 }
 
-// Remove top padding between header and hero
 .govuk-main-wrapper {
-  padding-top: 0;
   overflow-x: visible;
+}
+
+// Keep the home-page hero flush with the header.
+.app-main-wrapper--hero {
+  padding-top: 0;
 }
 
 html,
@@ -52,7 +55,7 @@ body {
 }
 
 .defra-hero__whats-new {
-  border: 1px solid rgba(255, 255, 255, 0.6);
+  border: 1px solid rgb(255, 255, 255, 0.6);
   padding: 16px 20px;
   background-color: transparent;
 }

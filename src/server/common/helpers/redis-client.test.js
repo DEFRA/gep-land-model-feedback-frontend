@@ -2,7 +2,7 @@ import { vi, describe, test, expect, beforeEach } from 'vitest'
 
 import { Cluster, Redis } from 'ioredis'
 
-import { config } from '../../../config/config.js'
+import { config } from '#/config/config.js'
 import { buildRedisClient } from './redis-client.js'
 
 const mockLoggerInfo = vi.fn()
@@ -44,6 +44,7 @@ describe('#buildRedisClient', () => {
 
       expect(Redis).toHaveBeenCalledWith({
         db: 0,
+        enableReadyCheck: false,
         host: '127.0.0.1',
         keyPrefix: 'gep-land-model-feedback-frontend:',
         port: 6379
@@ -66,7 +67,7 @@ describe('#buildRedisClient', () => {
         {
           dnsLookup: expect.any(Function),
           keyPrefix: 'gep-land-model-feedback-frontend:',
-          redisOptions: { db: 0, password: 'pass', tls: {}, username: 'user' },
+          redisOptions: { db: 0, enableReadyCheck: false, password: 'pass', tls: {}, username: 'user' },
           slotsRefreshTimeout: 10000
         }
       )

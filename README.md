@@ -34,7 +34,7 @@ Core delivery platform Node.js Frontend Template.
 
 ### Node.js
 
-Please install [Node.js](http://nodejs.org/) `>= v24` and [npm](https://nodejs.org/) `>= v10`. You will find it
+Please install [Node.js](http://nodejs.org/) `24.22.1` and [npm](https://nodejs.org/) `>= v10`. You will find it
 easier to use the Node Version Manager [nvm](https://github.com/creationix/nvm)
 
 To use the correct version of Node.js for this application, via nvm:
@@ -65,25 +65,15 @@ disable setting `SESSION_CACHE_ENGINE=false` or changing the default value in `s
 
 ## Proxy
 
-We are using forward-proxy which is set up by default. To make use of this: `import { fetch } from 'undici'` then
-because of the `setGlobalDispatcher(new ProxyAgent(proxyUrl))` calls will use the ProxyAgent Dispatcher
+We are using forward-proxy which is set up by default. Services are automatically configured with the proxy environment variables when deployed.
 
-If you are not using Wreck, Axios or Undici or a similar http that uses `Request`. Then you may have to provide the
-proxy dispatcher:
+Node.js 24 uses these variables to route outbound HTTP(S) requests through the proxy:
 
-To add the dispatcher to your own client:
+NODE_USE_ENV_PROXY=1
+HTTPS_PROXY=...
+NO_PROXY=...
 
-```javascript
-import { ProxyAgent } from 'undici'
-
-return await fetch(url, {
-  dispatcher: new ProxyAgent({
-    uri: proxyUrl,
-    keepAliveTimeout: 10,
-    keepAliveMaxTimeout: 10
-  })
-})
-```
+No additional proxy configuration is required in the service.
 
 ## Local Development
 
@@ -95,6 +85,19 @@ Install application dependencies:
 npm install
 ```
 
+### Git hooks
+
+Dependency install scripts are disabled by `.npmrc`. Enable Git hooks explicitly with `npm run setup:husky`.
+
+### Cookie consent and analytics
+
+Set `GOOGLE_TAG_MANAGER_KEY` to your GTM container ID. This replaces `GTM_CONTAINER_ID`.
+Consent is stored in `gep-land-model-feedback-frontend_policy` using the upstream format.
+Existing users will be asked for consent again. Both the banner and preferences page submit
+CSRF-protected requests to `/cookies`; the former `/cookies/accept` and `/cookies/reject`
+endpoints have been replaced. Analytics only loads after consent, and rejecting analytics
+removes GA cookies.
+
 ### Development
 
 To run the application in `development` mode run:
@@ -102,6 +105,8 @@ To run the application in `development` mode run:
 ```bash
 npm run dev
 ```
+
+Vite serves frontend assets through Hapi in development and writes hashed production assets to `.public` with `npm run build:frontend`.
 
 ### Production
 
@@ -259,3 +264,21 @@ information providers in the public sector to license the use and re-use of thei
 licence.
 
 It is designed to encourage use and re-use of information freely and flexibly, with only a few conditions.
+
+## Upstream template synchronisation
+
+Last synchronised with `DEFRA/cdp-node-frontend-template` at
+`475ec6629247a90932369f196ed051d2a7d2d49b` (22 October 2026), using the
+original repository snapshot `83c6758` as the three-way comparison base.
+
+The integration adopts Vite, the upstream route/plugin layout, Node 24.22.1,
+native environment proxy support, dependency updates and upstream cookie/analytics handling.
+Application branding, privacy/accessibility pages, ESLint formatting and Gitflow release
+workflows are retained. Template creation/validation workflows remain removed.
+
+For the next update, compare the recorded upstream commit against the new template tip
+and apply those changes with a three-way merge, preserving the application-specific changes.
+
+Security overrides keep `hapi-pulse` on the patched Joi 18 release used by the
+application and replace Blankie’s discontinued `@hapi/joi` dependency with its
+maintained Joi 17 equivalent. The lockfile also includes compatible security patches.

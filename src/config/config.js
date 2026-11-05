@@ -96,7 +96,8 @@ export const config = convict({
       format: Array,
       default: isProduction
         ? ['req.headers.authorization', 'req.headers.cookie', 'res.headers']
-        : []
+        : [],
+      env: 'LOG_REDACT'
     }
   },
   httpProxy: {
@@ -206,21 +207,56 @@ export const config = convict({
       default: isDevelopment
     }
   },
-  googleTagManager: {
-    containerId: {
-      doc: 'Google Tag Manager container ID',
-      format: String,
-      nullable: true,
-      default: null,
-      env: 'GTM_CONTAINER_ID'
-    }
-  },
   tracing: {
     header: {
       doc: 'Which header to track',
       format: String,
       default: 'x-cdp-request-id',
       env: 'TRACING_HEADER'
+    }
+  },
+  cookieConsent: {
+    name: {
+      doc: 'Name of cookie that stores the user consent preference',
+      format: String,
+      default: `${encodeURIComponent('gep-land-model-feedback-frontend')}_policy`
+    },
+    policy: {
+      clearInvalid: {
+        doc: 'Clear the cookie if it fails validation (e.g. bad JSON)',
+        format: Boolean,
+        default: true
+      },
+      encoding: {
+        doc: 'Hapi cookie encoding — base64json automatically serialises objects',
+        format: String,
+        default: 'base64json'
+      },
+      isSameSite: {
+        doc: 'SameSite attribute — Lax allows the cookie on top-level navigations',
+        format: String,
+        default: 'Lax'
+      },
+      isSecure: {
+        doc: 'Secure flag — only send cookie over HTTPS in production',
+        format: Boolean,
+        default: isProduction
+      }
+    },
+    config: {
+      ttl: {
+        doc: 'Cookie time-to-live in milliseconds (1 year)',
+        format: 'nat',
+        default: 1000 * 60 * 60 * 24 * 365
+      }
+    }
+  },
+  googleAnalytics: {
+    googleTagManagerKey: {
+      doc: 'Google Tag Manager container ID (e.g. GTM-XXXXXXXX)',
+      format: String,
+      default: '',
+      env: 'GOOGLE_TAG_MANAGER_KEY'
     }
   }
 })
