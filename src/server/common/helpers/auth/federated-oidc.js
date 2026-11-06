@@ -47,7 +47,7 @@ function scheme (_server, options) {
           const redirectTo = await preLogin(request, oidcConfig, options)
           return h.redirect(redirectTo).takeover()
         } catch (e) {
-          logger.error({ oidcError: oidcErrorDetails(e) }, 'OIDC pre-login failed')
+          logOidcFailure(e, 'OIDC pre-login failed')
           return Boom.unauthorized(e.message)
         }
       } else {
@@ -55,12 +55,19 @@ function scheme (_server, options) {
           const credentials = await postLogin(request, oidcConfig, options)
           return h.authenticated({ credentials })
         } catch (e) {
-          logger.error({ oidcError: oidcErrorDetails(e) }, 'OIDC post-login failed')
+          logOidcFailure(e, 'OIDC post-login failed')
           return Boom.unauthorized(e.message)
         }
       }
     }
   }
+}
+
+function logOidcFailure (error, message) {
+  const oidcError = oidcErrorDetails(error)
+  logger.error({ oidcError }, message)
+  // Keep diagnostics visible when the hosting log pipeline drops custom fields.
+  console.error(`${message}: ${JSON.stringify(oidcError)}`)
 }
 
 function oidcErrorDetails (error) {
