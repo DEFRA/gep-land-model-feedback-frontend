@@ -3,6 +3,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import convictFormatWithValidator from 'convict-format-with-validator'
+import { registerConfigFormats } from './formats.js'
 
 const dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -15,22 +16,7 @@ const isTest = process.env.NODE_ENV === 'test'
 const isDevelopment = process.env.NODE_ENV === 'development'
 
 convict.addFormats(convictFormatWithValidator)
-convict.addFormat({
-  name: 'positive-megabytes',
-  validate (value) {
-    if (value * 1000000 < 1 || !Number.isSafeInteger(Math.round(value * 1000000))) throw new Error('Use a positive number of megabytes representing at least one byte')
-  },
-  coerce: Number
-})
-convict.addFormat({
-  name: 'mime-type-list',
-  validate (value) {
-    if (!Array.isArray(value) || value.some(type => typeof type !== 'string' || !/^[a-z0-9!#$&^_.+-]+\/[a-z0-9!#$&^_.+-]+$/.test(type))) {
-      throw new Error('Use a comma-separated list of MIME types, or leave empty for all types')
-    }
-  },
-  coerce: value => typeof value === 'string' ? (value.trim() ? value.split(',').map(type => type.trim().toLowerCase()) : []) : value
-})
+registerConfigFormats(convict)
 
 export const config = convict({
   serviceVersion: {
@@ -85,17 +71,13 @@ export const config = convict({
     },
     templateId: {
       doc: 'GOV.UK Notify email template ID; required when submitting an issue',
-      format (value) {
-        if (value !== '' && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) throw new Error('Use a template UUID or leave empty')
-      },
+      format: 'optional-uuid',
       default: '',
       env: 'GOV_UK_NOTIFY_TEMPLATE_ID'
     },
     emailSubject: {
       doc: 'Issue report email subject prefix; the reference number is appended',
-      format (value) {
-        if (typeof value !== 'string' || !value.trim() || /[\r\n]/.test(value) || value.length > 200) throw new Error('Use a non-blank, single-line email title of at most 200 characters')
-      },
+      format: 'email-subject',
       default: 'ATLAS issue report',
       env: 'GOV_UK_NOTIFY_EMAIL_SUBJECT'
     }
@@ -398,13 +380,7 @@ export const config = convict({
     },
     publicUrl: {
       doc: 'Browser-facing uploader origin; empty uses the same-origin CDP upload route',
-      format (value) {
-        if (value === '') return
-        const url = new URL(value)
-        if (!['http:', 'https:'].includes(url.protocol) || url.pathname !== '/' || url.search || url.hash || url.username || url.password) {
-          throw new Error('Use an HTTP(S) origin or an empty value')
-        }
-      },
+      format: 'http-origin-or-empty',
       default: isProduction ? '' : 'http://localhost:7337',
       env: 'CDP_UPLOADER_PUBLIC_URL'
     },

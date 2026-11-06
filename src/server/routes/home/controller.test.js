@@ -1,4 +1,4 @@
-vi.mock('#/server/datasets/geonetwork/catalogue.js', () => ({ listDatasets: vi.fn(async () => []) }))
+vi.mock('#/server/common/services/geonetwork/client.js', () => ({ listDatasets: vi.fn(async () => []) }))
 import { load } from 'cheerio'
 import { mockAuthCredentials } from '#/server/common/test-helpers/auth.js'
 import { createServer } from '#/server/server.js'

@@ -1,4 +1,4 @@
-import { listDatasets } from './catalogue.js'
+import { listDatasets } from './client.js'
 import { config } from '#/config/config.js'
 
 const request = vi.fn()

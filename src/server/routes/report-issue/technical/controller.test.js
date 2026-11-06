@@ -1,10 +1,10 @@
-vi.mock('#/server/datasets/geonetwork/catalogue.js', () => ({ listDatasets: vi.fn(async () => []) }))
+import { createJourneyClient } from '#/server/common/test-helpers/journey-client.js'
+vi.mock('#/server/common/services/geonetwork/client.js', () => ({ listDatasets: vi.fn(async () => []) }))
 import { load } from 'cheerio'
 import { createServer } from '#/server/server.js'
-import { mockAuthCredentials } from '#/server/common/test-helpers/auth.js'
 
 let server
-let cookies
+let client
 const path = '/report-issue/technical'
 const descriptionPath = '/report-issue/description'
 
@@ -13,22 +13,9 @@ beforeAll(async () => {
   await server.initialize()
 })
 afterAll(async () => server.stop({ timeout: 0 }))
-beforeEach(() => { cookies = new Map() })
+beforeEach(() => { client = createJourneyClient(server) })
 
-async function visit (url, payload) {
-  const response = await server.inject({
-    url,
-    method: payload === undefined ? 'GET' : 'POST',
-    auth: mockAuthCredentials,
-    headers: { cookie: [...cookies].map(([name, value]) => `${name}=${value}`).join('; ') },
-    payload
-  })
-  for (const cookie of response.headers['set-cookie'] ?? []) {
-    const [name, ...value] = cookie.split(';')[0].split('=')
-    cookies.set(name, value.join('='))
-  }
-  return response
-}
+const visit = (...args) => client.visit(...args)
 
 function csrf (response, action) {
   return load(response.payload)(`form[action="${action}"] input[name="crumb"]`).val()
@@ -40,10 +27,7 @@ async function start (issueType = 'technical') {
   return visit(path)
 }
 
-async function submit (fields) {
-  const page = await visit(path)
-  return visit(path, { crumb: csrf(page, path), ...fields })
-}
+const submit = fields => client.submit(path, fields)
 
 test('renders ATLAS radios and a GOV.UK conditional Other input with an enabled Continue button', async () => {
   const response = await start()

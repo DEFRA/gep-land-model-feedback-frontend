@@ -1,15 +1,15 @@
-vi.mock('./notification.js', () => ({ sendIssueEmail: vi.fn(async () => ({ id: 'notify-id', recipient: 'atlas-support@example.com' })) }))
+import { createJourneyClient } from '#/server/common/test-helpers/journey-client.js'
+vi.mock('#/server/routes/report-issue/issue-reported/email.js', () => ({ sendIssueEmail: vi.fn(async () => ({ id: 'notify-id', recipient: 'atlas-support@example.com' })) }))
 import { load } from 'cheerio'
 import { createServer } from '#/server/server.js'
 import { config } from '#/config/config.js'
-import { mockAuthCredentials } from '#/server/common/test-helpers/auth.js'
-import { initiateUpload, getUploadStatus } from '#/server/common/helpers/upload.js'
-vi.mock('#/server/common/helpers/upload.js', async original => ({
+import { initiateUpload, getUploadStatus } from '#/server/common/services/uploader/client.js'
+vi.mock('#/server/common/services/uploader/client.js', async original => ({
   ...await original(), initiateUpload: vi.fn(), getUploadStatus: vi.fn()
 }))
 
 let server
-let cookies
+let client
 const path = '/report-issue/evidence'
 const review = '/report-issue/check-your-answers'
 const id = '11111111-1111-4111-8111-111111111111'
@@ -25,22 +25,13 @@ afterEach(() => {
   config.set('uploader.allowedMimeTypes', originalRestrictions.types)
 })
 beforeEach(() => {
-  cookies = new Map()
+  client = createJourneyClient(server)
   initiateUpload.mockReset().mockResolvedValue(id)
   getUploadStatus.mockReset().mockResolvedValue({ uploadStatus: 'initiated' })
 })
-async function visit (url, payload, auth = mockAuthCredentials) {
-  const response = await server.inject({ url, method: payload === undefined ? 'GET' : 'POST', auth, payload, headers: { cookie: [...cookies].map(([name, value]) => `${name}=${value}`).join('; ') } })
-  for (const cookie of response.headers['set-cookie'] ?? []) {
-    const [name, ...value] = cookie.split(';')[0].split('=')
-    cookies.set(name, value.join('='))
-  }
-  return response
-}
-async function post (url, fields = {}) {
-  const home = await visit('/')
-  return visit(url, { crumb: load(home.payload)('input[name="crumb"]').val(), ...fields })
-}
+const visit = (...args) => client.visit(...args)
+const post = (url, fields = {}) => client.submit(url, fields, '/')
+
 async function start (changing = false) {
   await post('/', { issueType: 'technical' })
   await post('/report-issue/technical', { technicalArea: 'map-viewer' })
@@ -198,13 +189,13 @@ test('does not trust another session or callback upload ID', async () => {
   const response = await visit(`${path}/complete?uploadId=${secondId}`)
   expect(response.headers.location).toBe(path)
   expect(getUploadStatus).not.toHaveBeenCalled()
-  const ownCookies = cookies
-  cookies = new Map()
+  const ownClient = client
+  client = createJourneyClient(server)
   await post('/', { issueType: 'technical' })
   await post('/report-issue/technical', { technicalArea: 'map-viewer' })
   await post('/report-issue/description', { issueDescription: 'Other session' })
   expect((await complete()).headers.location).toBe(path)
-  cookies = ownCookies
+  client = ownClient
   expect((await complete()).statusCode).toBe(200)
 })
 

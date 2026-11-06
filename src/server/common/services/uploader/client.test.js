@@ -1,5 +1,5 @@
 import { config } from '#/config/config.js'
-import { initiateUpload, getUploadStatus, uploadUrl } from './upload.js'
+import { initiateUpload, getUploadStatus, uploadUrl } from './client.js'
 
 const id = '11111111-1111-4111-8111-111111111111'
 const request = vi.fn()

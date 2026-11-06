@@ -66,6 +66,6 @@ export const issueTypeController = {
   },
   handler (request, h) {
     request.yar.set('issueType', request.payload.issueType)
-    return h.redirect(nextPage(request, `/report-issue/${request.payload.issueType}`)).code(303)
+    return h.redirect(nextPage(request, `/report-issue/${request.payload.issueType}`)).code(statusCodes.seeOther)
   }
 }

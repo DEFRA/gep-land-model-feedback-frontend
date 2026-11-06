@@ -1,10 +1,10 @@
-vi.mock('#/server/datasets/geonetwork/catalogue.js', () => ({ listDatasets: vi.fn(async () => []) }))
+import { createJourneyClient } from '#/server/common/test-helpers/journey-client.js'
+vi.mock('#/server/common/services/geonetwork/client.js', () => ({ listDatasets: vi.fn(async () => []) }))
 import { load } from 'cheerio'
 import { createServer } from '#/server/server.js'
-import { mockAuthCredentials } from '#/server/common/test-helpers/auth.js'
 
 let server
-let cookies
+let client
 const datasetPath = '/report-issue/data'
 const locationPath = `${datasetPath}/location`
 const attributesPath = `${datasetPath}/attributes`
@@ -13,26 +13,10 @@ beforeAll(async () => {
   await server.initialize()
 })
 afterAll(async () => server.stop({ timeout: 0 }))
-beforeEach(() => { cookies = new Map() })
-async function visit (url, payload) {
-  const response = await server.inject({
-    url,
-    method: payload === undefined ? 'GET' : 'POST',
-    auth: mockAuthCredentials,
-    headers: { cookie: [...cookies].map(([name, value]) => `${name}=${value}`).join('; ') },
-    payload
-  })
-  for (const cookie of response.headers['set-cookie'] ?? []) {
-    const [name, ...value] = cookie.split(';')[0].split('=')
-    cookies.set(name, value.join('='))
-  }
-  return response
-}
-async function submit (url, fields) {
-  const page = await visit(url)
-  const crumb = load(page.payload)('input[name="crumb"]').val()
-  return visit(url, { crumb, ...fields })
-}
+beforeEach(() => { client = createJourneyClient(server) })
+const visit = (...args) => client.visit(...args)
+const submit = (...args) => client.submit(...args)
+
 async function start (selectDataset = true) {
   await submit('/', { issueType: 'data' })
   if (selectDataset) await submit(datasetPath, { dataset: 'land-model' })

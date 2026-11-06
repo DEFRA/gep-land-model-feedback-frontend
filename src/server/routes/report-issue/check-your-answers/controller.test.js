@@ -1,15 +1,15 @@
-vi.mock('#/server/common/helpers/upload.js', async importOriginal => ({
+import { createJourneyClient } from '#/server/common/test-helpers/journey-client.js'
+vi.mock('#/server/common/services/uploader/client.js', async importOriginal => ({
   ...await importOriginal(),
   initiateUpload: vi.fn(async () => '11111111-1111-4111-8111-111111111111'),
   getUploadStatus: vi.fn(async () => ({ uploadStatus: 'initiated' }))
 }))
-vi.mock('#/server/datasets/geonetwork/catalogue.js', () => ({ listDatasets: vi.fn(async () => []) }))
+vi.mock('#/server/common/services/geonetwork/client.js', () => ({ listDatasets: vi.fn(async () => []) }))
 import { load } from 'cheerio'
 import { createServer } from '#/server/server.js'
-import { mockAuthCredentials } from '#/server/common/test-helpers/auth.js'
 
 let server
-let cookies
+let client
 const reviewPath = '/report-issue/check-your-answers'
 const changing = path => `${path}?returnTo=check-your-answers`
 beforeAll(async () => {
@@ -17,27 +17,11 @@ beforeAll(async () => {
   await server.initialize()
 })
 afterAll(async () => server.stop({ timeout: 0 }))
-beforeEach(() => { cookies = new Map() })
+beforeEach(() => { client = createJourneyClient(server) })
 
-async function visit (url, payload) {
-  const response = await server.inject({
-    url,
-    method: payload === undefined ? 'GET' : 'POST',
-    auth: mockAuthCredentials,
-    headers: { cookie: [...cookies].map(([name, value]) => `${name}=${value}`).join('; ') },
-    payload
-  })
-  for (const cookie of response.headers['set-cookie'] ?? []) {
-    const [name, ...value] = cookie.split(';')[0].split('=')
-    cookies.set(name, value.join('='))
-  }
-  return response
-}
-async function submit (url, fields) {
-  const page = await visit(url)
-  const crumb = load(page.payload)('input[name="crumb"]').val()
-  return visit(url, { crumb, ...fields })
-}
+const visit = (...args) => client.visit(...args)
+const submit = (...args) => client.submit(...args)
+
 async function start (issueType = 'data', location = { locationType: 'grid', gridReference: 'SK1481' }) {
   await submit('/', { issueType })
   if (issueType === 'data') {

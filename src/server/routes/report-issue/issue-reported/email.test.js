@@ -1,5 +1,5 @@
 import { config } from '#/config/config.js'
-import { sendIssueEmail } from './notification.js'
+import { sendIssueEmail } from '#/server/routes/report-issue/issue-reported/email.js'
 import axios from 'axios'
 import { setTimeout as delay } from 'node:timers/promises'
 import { randomUUID } from 'node:crypto'

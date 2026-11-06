@@ -38,7 +38,7 @@ Core delivery platform Node.js Frontend Template.
 
 ### Node.js
 
-Please install [Node.js](http://nodejs.org/) `24.22.1` and [npm](https://nodejs.org/) `>= v10`. You will find it
+Please install [Node.js](http://nodejs.org/) `26.13.0` and [npm](https://nodejs.org/) `>= v10`. You will find it
 easier to use the Node Version Manager [nvm](https://github.com/creationix/nvm)
 
 To use the correct version of Node.js for this application, via nvm:
@@ -52,7 +52,7 @@ nvm use
 
 We use Catbox for server-side caching. The service uses CatboxRedis when deployed and during local development, matching the viewer. Tests use CatboxMemory.
 You can override the default behaviour by setting the `SESSION_CACHE_ENGINE` environment variable to either `redis` or
-`memory`.
+`memory` for local development and tests. Production rejects `memory`.
 
 Please note: CatboxMemory (`memory`) is _not_ suitable for production use! The cache will not be shared between each
 instance of the service and it will not persist between restarts.
@@ -195,6 +195,47 @@ Pushes to a `release/*` branch trigger [Publish Release](.github/workflows/publi
 When a PR is merged into `main`, the [Auto Back-merge](.github/workflows/auto-back-merge.yml) workflow opens a PR to merge `main` back into `develop`. Review and merge it to keep develop up to date.
 
 Hotfixes are handled by the [Publish Hot Fix](.github/workflows/publish-hotfix.yml) workflow, triggered manually from a hotfix branch. Each trigger builds a new patch version (e.g. `0.2.1`, `0.2.2`) so fixes can be re-tested before merging. Deploy hotfix artifacts via the CDP portal.
+
+## Code organisation and standards
+
+Inherited CDP template files retain their existing locations and structure.
+The page and service reorganisation below applies to the application code added
+for issue reporting. Template updates remain limited to configuration, runtime
+and build settings, or targeted fixes needed by the application.
+
+The workflow follows the page modules used in
+[Find Geo Data](https://github.com/DEFRA/gep-find-geo-data-frontend/tree/develop/src/server/search)
+and [Land Model Viewer](https://github.com/DEFRA/gep-land-model-viewer-frontend/tree/develop/src/server):
+
+- `src/server/routes/report-issue/index.js` registers each page's Hapi plugin.
+- Page folders own their route registration (`index.js`), controllers, templates
+  and integration tests. Larger pages keep Joi schemas, view models and service
+  logic in separate modules. Data issue controllers are split by dataset,
+  location and attributes within the same feature folder.
+- `helpers/prerequisites.js` checks workflow prerequisites without importing
+  controllers. `helpers/answers.js` creates the shared answer snapshot;
+  `check-your-answers/view-model.js` formats it for both review and email.
+- `src/server/common/services/` contains the GeoNetwork, CDP Uploader and Notify
+  clients. External request construction, timeouts and retry policy live here;
+  page controllers handle navigation, session updates and rendering.
+- `src/config/formats.js` defines reusable configuration validation formats.
+- `src/server/common/test-helpers/journey-client.js` handles session cookies and
+  CSRF tokens for workflow integration tests.
+
+Follow the [Defra Node.js standards](https://defra.github.io/software-development-standards/standards/node_standards/)
+and [JavaScript standards](https://defra.github.io/software-development-standards/standards/javascript_standards/):
+use Hapi, ES modules, async/await, the unchanged neostandard ruleset and GOV.UK
+Frontend components. The runtime is pinned to Node 26 Active LTS in `.nvmrc`,
+`package.json` and the Defra Docker images; use `nvm install && nvm use` after
+updating your checkout. Dependencies are pinned and automated installs use `npm ci`
+with the repository's `.npmrc` settings. Docker builds copy those settings before
+installing dependencies. Run lint, tests with coverage, the frontend build and
+`npm run security-audit` before raising a pull request.
+
+Yar stores workflow state in the configured cache rather than in cookies.
+Production requires Redis and rejects a process-local memory cache. Memory remains
+available for local development and offline tests. Authentication defaults to on;
+set `AUTH_REQUIRED=false` in your local environment to bypass it on loopback only.
 
 ## Issue reporting workflow
 
@@ -488,7 +529,7 @@ containers are recreated. This does not affect deployed S3 buckets.
 
 ## GeoNetwork dataset catalogue
 
-`src/server/datasets/geonetwork/catalogue.js` calls the same
+`src/server/common/services/geonetwork/client.js` calls the same
 `POST /search/records/_search` endpoint and title field as the
 [land model viewer](https://github.com/DEFRA/gep-land-model-viewer-frontend).
 It now requests only `resourceTitleObject.default` and returns `{ id, title }`.
@@ -544,7 +585,7 @@ Set `GEONETWORK_DATASET_CATEGORIES=feedback-excluded` to see the third, or leave
 empty to see all three. You can verify the API independently:
 
 ```bash
-node --env-file-if-exists=.env --input-type=module -e 'const { listDatasets } = await import("./src/server/datasets/geonetwork/catalogue.js"); console.table(await listDatasets())'
+node --env-file-if-exists=.env --input-type=module -e 'const { listDatasets } = await import("./src/server/common/services/geonetwork/client.js"); console.table(await listDatasets())'
 ```
 
 Stop the optional catalogue with `npm run geonetwork:down`. Named volumes retain

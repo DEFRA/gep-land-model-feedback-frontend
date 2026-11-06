@@ -1,35 +1,20 @@
-vi.mock('../notification.js', () => ({ sendIssueEmail: vi.fn(async () => ({ id: 'notify-id', recipient: 'atlas-support@example.com' })) }))
+import { createJourneyClient } from '#/server/common/test-helpers/journey-client.js'
+vi.mock('#/server/routes/report-issue/issue-reported/email.js', () => ({ sendIssueEmail: vi.fn(async () => ({ id: 'notify-id', recipient: 'atlas-support@example.com' })) }))
 import { load } from 'cheerio'
 import { createServer } from '#/server/server.js'
-import { mockAuthCredentials } from '#/server/common/test-helpers/auth.js'
-import { listDatasets } from '#/server/datasets/geonetwork/catalogue.js'
-vi.mock('#/server/datasets/geonetwork/catalogue.js', () => ({ listDatasets: vi.fn() }))
+import { listDatasets } from '#/server/common/services/geonetwork/client.js'
+vi.mock('#/server/common/services/geonetwork/client.js', () => ({ listDatasets: vi.fn() }))
 
 let server
-let cookies
+let client
 const path = '/report-issue/data'
 const fixtures = [{ id: 'woodland-id', title: 'Ancient woodland' }, { id: 'flood-id', title: 'Flood risk areas' }]
 beforeAll(async () => { server = await createServer(); await server.initialize() })
 afterAll(async () => server.stop({ timeout: 0 }))
-beforeEach(() => { cookies = new Map(); listDatasets.mockReset().mockResolvedValue(fixtures) })
-async function visit (url, payload) {
-  const response = await server.inject({
-    url,
-    method: payload === undefined ? 'GET' : 'POST',
-    auth: mockAuthCredentials,
-    headers: { cookie: [...cookies].map(([name, value]) => `${name}=${value}`).join('; ') },
-    payload
-  })
-  for (const cookie of response.headers['set-cookie'] ?? []) {
-    const [name, ...value] = cookie.split(';')[0].split('=')
-    cookies.set(name, value.join('='))
-  }
-  return response
-}
-async function submit (url, fields) {
-  const page = await visit(url)
-  return visit(url, { crumb: load(page.payload)('input[name="crumb"]').val(), ...fields })
-}
+beforeEach(() => { client = createJourneyClient(server); listDatasets.mockReset().mockResolvedValue(fixtures) })
+const visit = (...args) => client.visit(...args)
+const submit = (...args) => client.submit(...args)
+
 async function start () { await submit('/', { issueType: 'data' }); return visit(path) }
 
 test('reveals a GOV.UK select populated with catalogue IDs and names', async () => {

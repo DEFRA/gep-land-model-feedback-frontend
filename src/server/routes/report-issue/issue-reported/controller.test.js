@@ -1,13 +1,14 @@
-vi.mock('./notification.js', () => ({ sendIssueEmail: vi.fn(async () => ({ id: 'notify-id', recipient: 'atlas-support@example.com' })) }))
-vi.mock('#/server/datasets/geonetwork/catalogue.js', () => ({ listDatasets: vi.fn(async () => []) }))
-import { sendIssueEmail } from './notification.js'
+import { createJourneyClient } from '#/server/common/test-helpers/journey-client.js'
+vi.mock('#/server/routes/report-issue/issue-reported/email.js', () => ({ sendIssueEmail: vi.fn(async () => ({ id: 'notify-id', recipient: 'atlas-support@example.com' })) }))
+vi.mock('#/server/common/services/geonetwork/client.js', () => ({ listDatasets: vi.fn(async () => []) }))
+import { sendIssueEmail } from '#/server/routes/report-issue/issue-reported/email.js'
 import { load } from 'cheerio'
 import { createServer } from '#/server/server.js'
 import { config } from '#/config/config.js'
 import { mockAuthCredentials } from '#/server/common/test-helpers/auth.js'
 
 let server
-let cookies
+let client
 const reviewPath = '/report-issue/check-your-answers'
 const reportedPath = '/report-issue/issue-reported'
 const originalMailbox = config.get('supportMailboxAddress')
@@ -17,31 +18,15 @@ beforeAll(async () => {
 })
 afterAll(async () => server.stop({ timeout: 0 }))
 beforeEach(() => {
-  cookies = new Map()
+  client = createJourneyClient(server)
   sendIssueEmail.mockReset().mockResolvedValue({ id: 'notify-id', recipient: 'atlas-support@example.com' })
   config.set('supportMailboxAddress', 'atlas-support@example.com')
 })
 afterEach(() => config.set('supportMailboxAddress', originalMailbox))
 
-async function visit (url, payload) {
-  const response = await server.inject({
-    url,
-    method: payload === undefined ? 'GET' : 'POST',
-    auth: mockAuthCredentials,
-    headers: { cookie: [...cookies].map(([name, value]) => `${name}=${value}`).join('; ') },
-    payload
-  })
-  for (const cookie of response.headers['set-cookie'] ?? []) {
-    const [name, ...value] = cookie.split(';')[0].split('=')
-    cookies.set(name, value.join('='))
-  }
-  return response
-}
-async function submit (url, fields = {}) {
-  const page = await visit(url)
-  const crumb = load(page.payload)('input[name="crumb"]').val()
-  return visit(url, { crumb, ...fields })
-}
+const visit = (...args) => client.visit(...args)
+const submit = (...args) => client.submit(...args)
+
 async function start (issueType) {
   await submit('/', { issueType })
   if (issueType === 'data') {

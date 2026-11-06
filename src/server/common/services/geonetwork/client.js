@@ -1,5 +1,5 @@
-import { logExternalCall } from '../../common/helpers/logging/logger.js'
-import { config } from '../../../config/config.js'
+import { logExternalCall } from '../../helpers/logging/logger.js'
+import { config } from '#/config/config.js'
 
 export const MAX_RESULTS = 500
 

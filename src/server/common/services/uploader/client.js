@@ -1,6 +1,6 @@
 import Joi from 'joi'
 import { config } from '#/config/config.js'
-import { logExternalCall } from './logging/logger.js'
+import { logExternalCall } from '../../helpers/logging/logger.js'
 
 async function api (path, options = {}) {
   const response = await logExternalCall('CDP Uploader', options.method ?? 'GET', () => fetch(`${config.get('uploader.apiUrl').replace(/\/$/, '')}${path}`, {

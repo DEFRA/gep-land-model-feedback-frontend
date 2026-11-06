@@ -14,10 +14,11 @@ export function getCacheEngine (engine) {
     return new CatboxRedis({ client: redisClient })
   }
 
-  if (config.get('isProduction')) {
+  if (config.get('isProduction') && !config.get('isTest')) {
     logger.error(
       'Catbox Memory is for local development only, it should not be used in production!'
     )
+    throw new Error('Production sessions require a distributed Redis cache')
   }
 
   logger.info('Using Catbox Memory session cache')
