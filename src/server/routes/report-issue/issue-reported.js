@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { config } from '#/config/config.js'
-import { getEvidenceRedirect } from './evidence.js'
+import { getEvidenceRedirect, checkEvidenceUpload, evidenceFiles } from './evidence.js'
 
 function reportAnswers (request) {
   const issueType = request.yar.get('issueType')
@@ -17,14 +17,17 @@ function reportAnswers (request) {
           technicalArea: request.yar.get('technicalArea'),
           technicalOther: request.yar.get('technicalOther')
         }),
-    description: request.yar.get('issueDescription')
+    description: request.yar.get('issueDescription'),
+    files: evidenceFiles(request)
   }
 }
 
 export const submitIssueController = {
-  handler (request, h) {
+  async handler (request, h) {
     const redirect = getEvidenceRedirect(request)
     if (redirect) return h.redirect(redirect).code(303)
+    const uploadRedirect = await checkEvidenceUpload(request, h)
+    if (uploadRedirect) return uploadRedirect
     const answers = reportAnswers(request)
     const previous = request.yar.get('reportedIssue')
     // Repeated submission of the same answers reuses the existing receipt.

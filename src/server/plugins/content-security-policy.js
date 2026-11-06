@@ -1,3 +1,4 @@
+import { config } from '#/config/config.js'
 import Blankie from 'blankie'
 
 /**
@@ -30,7 +31,7 @@ const contentSecurityPolicy = {
     ],
     styleSrc: ['self'],
     frameAncestors: ['none'],
-    formAction: ['self'],
+    formAction: ['self', ...(config.get('uploader.publicUrl') ? [new URL(config.get('uploader.publicUrl')).origin] : [])],
     manifestSrc: ['self'],
     generateNonces: true
   }

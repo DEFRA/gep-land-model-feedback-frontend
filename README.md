@@ -20,6 +20,7 @@ Core delivery platform Node.js Frontend Template.
   - [Testing](#testing)
   - [CI/CD](#cicd)
 - [Issue reporting workflow](#issue-reporting-workflow)
+- [Local evidence uploads](#local-evidence-uploads)
 - [GeoNetwork dataset catalogue](#geonetwork-dataset-catalogue)
 - [Authentication](#authentication)
 - [Docker](#docker)
@@ -271,16 +272,21 @@ submissions show a GOV.UK error summary and inline error.
 The shared **Add any evidence of the issue** page uses the
 [improved GOV.UK File upload component](https://design-system.service.gov.uk/components/file-upload/#using-the-improved-file-upload-component),
 with `javascript: true` and the library's `FileUpload` initializer. Users can choose
-or drop multiple files. File selection is optional and stays in the browser:
-there is no upload form, file POST endpoint, storage integration or file validation
-yet. Selected files are not retained when navigating away or reloading. The page
-states that files will not be uploaded or saved. Continue opens
-`/report-issue/check-your-answers` without sending selected files.
+or drop multiple files. **Upload files** sends the multipart form directly to CDP
+Uploader, following the [CDP basic upload example](https://github.com/DEFRA/cdp-example-node-frontend/tree/main/src/server/basic-upload).
+The frontend receives scan status and private S3 references, never file contents.
+The waiting page refreshes every two seconds while scanning. Only files marked
+complete, with the configured bucket and batch-specific S3 path, are accepted.
+Rejected-file messages appear in the GOV.UK error summary and beside the input;
+clean files in a mixed batch remain attached. Users can add more batches or remove
+attachments. Evidence is optional: Continue opens Check your answers without
+requiring a file, but pending scans cannot be bypassed through review or Submit.
+See [Local evidence uploads](#local-evidence-uploads) to run the uploader locally.
 
 **Check your answers** uses the GOV.UK Summary list component. It shows Issue type,
 Location ID (or Location) and Incorrect attributes for a data issue, or Relates to
-for a technical issue, followed by Description and Files. Files shows **No files
-added** while upload integration is unavailable. The labels follow the prototype,
+for a technical issue, followed by Description and Files. Files shows uploaded
+filenames, or **No files added** when there are no attachments. The labels follow the prototype,
 using ATLAS terminology. Description line breaks and attribute lists are preserved;
 user-provided text is escaped.
 
@@ -316,12 +322,17 @@ confirmation email to …” before “What happens next”. Email delivery rema
 future integration; this wording currently forms part of the frontend scaffold.
 
 This completes the frontend workflow scaffold. Receipts are stored only in the
-session cache; no external case system, durable report store, email delivery or
-file storage is integrated yet.
+session cache; no external case system, durable report store or email delivery is
+integrated yet. Clean evidence is stored by CDP Uploader in the configured S3 bucket;
+file IDs, upload IDs, names, sizes, checksums and S3 references are included in the
+session receipt. Removing an attachment removes its report reference, not the S3
+object. Configure the destination bucket lifecycle/retention policy separately.
 
 CSRF validation now covers application forms; the OIDC callback remains exempt
 because it is verified by the authentication flow. Include the hidden `crumb`
-field on any future POST form.
+field on any future application POST form. The multipart form sent directly to
+CDP Uploader must not include the application crumb. It uses the uploader's single-use upload URL; the return route checks the active session upload and
+server-held metadata token before accepting status results.
 
 ### Manual validation testing
 
@@ -333,6 +344,68 @@ Private windows can share the same private browsing session. To repeat the test
 with a fresh session after making selections, close **all** incognito/private
 windows and open a new one. A new tab in an existing session may restore saved
 selections.
+
+## Local evidence uploads
+
+The integration follows the [CDP frontend basic-upload example](https://github.com/DEFRA/cdp-example-node-frontend/tree/main/src/server/basic-upload)
+and the [CDP Uploader API and local development instructions](https://github.com/DEFRA/cdp-uploader).
+The optional [compose.uploader.yml](./compose.uploader.yml) is based on the
+uploader's Compose setup and startup script. It creates its own Redis, LocalStack,
+quarantine bucket, destination bucket, scan-result queues and mock scanner.
+
+```bash
+npm run uploader:up
+npm run dev
+```
+
+The uploader is available at `http://localhost:7337`. Its isolated LocalStack
+endpoint is `http://localhost:4567`; neither stack replaces the application's
+Redis or existing AWS emulator. Only these two endpoints are published, bound to
+loopback. Local AWS credentials are `test` / `test`, region `eu-west-2`. The image
+matches the upstream `CDP_UPLOADER_VERSION` override, defaulting to `latest`.
+Run `docker compose -f compose.uploader.yml pull` to update it deliberately.
+
+Defaults are configured for this stack. To override, set these in `.env` and
+restart the frontend:
+
+```dotenv
+CDP_UPLOADER_URL=http://localhost:7337
+CDP_UPLOADER_PUBLIC_URL=http://localhost:7337
+EVIDENCE_S3_BUCKET=atlas-feedback-evidence
+EVIDENCE_MAX_FILE_SIZE=100000000
+```
+
+`CDP_UPLOADER_URL` is the private API endpoint used by the frontend server.
+`CDP_UPLOADER_PUBLIC_URL` is the browser-facing upload origin, also allowed by the
+form-action CSP. On CDP, leave the public value empty so forms post to the
+same-origin `/upload-and-scan/<id>` route, and configure the internal API URL and
+your service's approved bucket. The CDP Platform team must provision the bucket
+and enable uploader access as described in the uploader README. No AWS credentials
+or new S3 SDK are needed by this frontend for the upload/status integration.
+The default limit is 100 MB per file; the uploader enforces it before scanning.
+
+To test:
+
+1. Complete either workflow up to **Add any evidence of the issue**.
+2. Choose one or more small files and select **Upload files**.
+3. Wait for checking to finish; accepted files appear under **Uploaded files**.
+4. Continue to Check your answers and verify the filenames. Submit retains the
+   clean file references in the session receipt.
+5. Try an empty file or one larger than the configured limit to check errors.
+   A harmless text file with `virus` in its name exercises the local rejection path.
+6. Remove a file and verify it is no longer included in the report.
+
+The local scanner **simulates** results from the filename; it does not perform a
+real antivirus scan. In deployed environments CDP supplies the actual scan service.
+You can verify clean files reached local S3 with:
+
+```bash
+docker compose -f compose.uploader.yml exec localstack awslocal s3 ls s3://atlas-feedback-evidence/evidence/ --recursive
+```
+
+Stop this stack with `npm run uploader:down`. It is independent of the GeoNetwork
+stack. The local uploader and AWS data are disposable and recreated when their
+containers are recreated. This does not affect deployed S3 buckets.
 
 ## GeoNetwork dataset catalogue
 

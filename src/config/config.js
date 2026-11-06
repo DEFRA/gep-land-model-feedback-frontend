@@ -15,6 +15,13 @@ const isTest = process.env.NODE_ENV === 'test'
 const isDevelopment = process.env.NODE_ENV === 'development'
 
 convict.addFormats(convictFormatWithValidator)
+convict.addFormat({
+  name: 'positive-bytes',
+  validate (value) {
+    if (!Number.isSafeInteger(value) || value <= 0) throw new Error('Use a positive whole number of bytes')
+  },
+  coerce: Number
+})
 
 export const config = convict({
   serviceVersion: {
@@ -346,6 +353,38 @@ export const config = convict({
         format: 'nat',
         default: 1000 * 60 * 60 * 24 * 365
       }
+    }
+  },
+  uploader: {
+    apiUrl: {
+      doc: 'Internal CDP Uploader API base URL',
+      format: 'url',
+      default: 'http://localhost:7337',
+      env: 'CDP_UPLOADER_URL'
+    },
+    publicUrl: {
+      doc: 'Browser-facing uploader origin; empty uses the same-origin CDP upload route',
+      format (value) {
+        if (value === '') return
+        const url = new URL(value)
+        if (!['http:', 'https:'].includes(url.protocol) || url.pathname !== '/' || url.search || url.hash || url.username || url.password) {
+          throw new Error('Use an HTTP(S) origin or an empty value')
+        }
+      },
+      default: isProduction ? '' : 'http://localhost:7337',
+      env: 'CDP_UPLOADER_PUBLIC_URL'
+    },
+    bucket: {
+      doc: 'CDP-approved destination bucket for clean issue evidence',
+      format: String,
+      default: 'atlas-feedback-evidence',
+      env: 'EVIDENCE_S3_BUCKET'
+    },
+    maxFileSize: {
+      doc: 'Maximum evidence file size in bytes',
+      format: 'positive-bytes',
+      default: 100000000,
+      env: 'EVIDENCE_MAX_FILE_SIZE'
     }
   },
   geonetwork: {

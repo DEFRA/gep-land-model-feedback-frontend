@@ -1,6 +1,6 @@
 import { submitIssueController, issueReportedController } from './issue-reported.js'
 import { checkAnswersController } from './check-your-answers.js'
-import { evidenceController } from './evidence.js'
+import { evidenceController, evidenceCompleteController, removeEvidenceController } from './evidence.js'
 import { descriptionController, descriptionPostController } from './description.js'
 import { technicalGetController, technicalPostController } from './technical/controller.js'
 import { datasetGetController, datasetPostController, locationGetController, locationPostController, attributesController, attributesPostController } from './data/controller.js'
@@ -19,6 +19,8 @@ export const reportIssue = {
         { method: 'GET', path: '/report-issue/description', ...descriptionController },
         { method: 'POST', path: '/report-issue/description', ...descriptionPostController },
         { method: 'GET', path: '/report-issue/evidence', ...evidenceController },
+        { method: 'GET', path: '/report-issue/evidence/complete', ...evidenceCompleteController },
+        { method: 'POST', path: '/report-issue/evidence/remove/{fileId}', ...removeEvidenceController },
         { method: 'GET', path: '/report-issue/check-your-answers', ...checkAnswersController },
         { method: 'POST', path: '/report-issue/check-your-answers', ...submitIssueController },
         { method: 'GET', path: '/report-issue/issue-reported', ...issueReportedController },

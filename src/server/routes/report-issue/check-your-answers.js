@@ -1,4 +1,4 @@
-import { getEvidenceRedirect } from './evidence.js'
+import { getEvidenceRedirect, checkEvidenceUpload, evidenceFiles } from './evidence.js'
 import { locationOptions, attributeOptions } from './data/controller.js'
 import { options as technicalOptions } from './technical/controller.js'
 
@@ -7,9 +7,11 @@ function row (label, value, path) {
 }
 
 export const checkAnswersController = {
-  handler (request, h) {
+  async handler (request, h) {
     const redirect = getEvidenceRedirect(request)
     if (redirect) return h.redirect(redirect).code(303)
+    const uploadRedirect = await checkEvidenceUpload(request, h)
+    if (uploadRedirect) return uploadRedirect
     const dataIssue = request.yar.get('issueType') === 'data'
     const rows = [row('Issue type', dataIssue ? 'Data issue' : 'Technical issue', '/')]
     if (dataIssue && request.yar.get('dataset') === 'other') {
@@ -27,7 +29,7 @@ export const checkAnswersController = {
       rows.push(row('Relates to', text, '/report-issue/technical'))
     }
     rows.push(row('Description', request.yar.get('issueDescription'), '/report-issue/description'))
-    rows.push(row('Files', 'No files added', '/report-issue/evidence'))
+    rows.push(row('Files', evidenceFiles(request).map(file => file.filename).join('\n') || 'No files added', '/report-issue/evidence'))
     return h.view('report-issue/check-your-answers', { pageTitle: 'Check your answers', rows })
   }
 }

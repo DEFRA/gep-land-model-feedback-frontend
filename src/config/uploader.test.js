@@ -1,0 +1,27 @@
+afterEach(() => { vi.unstubAllEnvs(); vi.resetModules() })
+test('reads internal/public uploader endpoints, bucket and size limit from the environment', async () => {
+  vi.stubEnv('CDP_UPLOADER_URL', 'http://uploader.internal')
+  vi.stubEnv('CDP_UPLOADER_PUBLIC_URL', 'https://uploads.example.com')
+  vi.stubEnv('EVIDENCE_S3_BUCKET', 'service-evidence')
+  vi.stubEnv('EVIDENCE_MAX_FILE_SIZE', '5000000')
+  vi.resetModules()
+  const { config } = await import('./config.js')
+  expect(config.get('uploader')).toEqual({ apiUrl: 'http://uploader.internal', publicUrl: 'https://uploads.example.com', bucket: 'service-evidence', maxFileSize: 5000000 })
+})
+test('production uses a same-origin public upload route by default', async () => {
+  vi.stubEnv('NODE_ENV', 'production')
+  vi.stubEnv('CDP_UPLOADER_PUBLIC_URL', undefined)
+  vi.resetModules()
+  const { config } = await import('./config.js')
+  expect(config.get('uploader.publicUrl')).toBe('')
+})
+test.each(['javascript:alert(1)', 'https://uploads.example.com/path', 'https://user:password@uploads.example.com'])('rejects invalid browser-facing upload origins: %s', async value => {
+  vi.stubEnv('CDP_UPLOADER_PUBLIC_URL', value)
+  vi.resetModules()
+  await expect(import('./config.js')).rejects.toThrow()
+})
+test.each(['0', '-1', '1.5'])('rejects invalid file-size limits: %s', async value => {
+  vi.stubEnv('EVIDENCE_MAX_FILE_SIZE', value)
+  vi.resetModules()
+  await expect(import('./config.js')).rejects.toThrow('uploader.maxFileSize')
+})

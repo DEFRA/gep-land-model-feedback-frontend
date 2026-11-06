@@ -1,3 +1,8 @@
+vi.mock('#/server/common/helpers/upload.js', async importOriginal => ({
+  ...await importOriginal(),
+  initiateUpload: vi.fn(async () => '11111111-1111-4111-8111-111111111111'),
+  getUploadStatus: vi.fn(async () => ({ uploadStatus: 'initiated' }))
+}))
 vi.mock('#/server/datasets/geonetwork/catalogue.js', () => ({ listDatasets: vi.fn(async () => []) }))
 import { load } from 'cheerio'
 import { createServer } from '#/server/server.js'
@@ -140,7 +145,7 @@ test('Change Files returns to review without posting or persisting file contents
   const $ = load(response.payload)
   expect($('.govuk-back-link').attr('href')).toBe(reviewPath)
   expect($('a.govuk-button').attr('href')).toBe(reviewPath)
-  expect($('form')).toHaveLength(0)
+  expect($('form[enctype="multipart/form-data"]')).toHaveLength(1)
   expect(rows(await visit(reviewPath)).Files).toBe('No files added')
 })
 

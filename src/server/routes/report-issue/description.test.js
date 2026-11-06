@@ -1,3 +1,8 @@
+vi.mock('#/server/common/helpers/upload.js', async importOriginal => ({
+  ...await importOriginal(),
+  initiateUpload: vi.fn(async () => '11111111-1111-4111-8111-111111111111'),
+  getUploadStatus: vi.fn(async () => ({ uploadStatus: 'initiated' }))
+}))
 vi.mock('#/server/datasets/geonetwork/catalogue.js', () => ({ listDatasets: vi.fn(async () => []) }))
 import { load } from 'cheerio'
 import { createServer } from '#/server/server.js'
@@ -61,9 +66,10 @@ test.each(['data', 'technical'])('%s description saves trimmed text and opens th
   expect($('.govuk-file-upload-wrapper').attr('data-module')).toBe('govuk-file-upload')
   expect($('#evidence-files').is('input[type="file"].govuk-file-upload[multiple]')).toBe(true)
   expect($('#evidence-files').attr('required')).toBeUndefined()
-  expect($('form')).toHaveLength(0)
-  expect($('.govuk-inset-text').text()).toContain('will not be uploaded or saved')
-  expect($('.govuk-grid-column-two-thirds .govuk-button').attr('href')).toBe('/report-issue/check-your-answers')
+  expect($('form[enctype="multipart/form-data"]').attr('action')).toMatch(/^http:\/\/localhost:7337\/upload-and-scan\//)
+  expect($('form[enctype="multipart/form-data"] input[name="crumb"]')).toHaveLength(0)
+  expect($('#evidence-files-hint').text()).toContain('100 MB')
+  expect($('a.govuk-button').attr('href')).toBe('/report-issue/check-your-answers')
   expect($('.govuk-back-link').attr('href')).toBe(descriptionPath)
   const back = load((await visit(descriptionPath)).payload)
   expect(back('#issue-description').val()).toBe('The dataset download does not start.')
