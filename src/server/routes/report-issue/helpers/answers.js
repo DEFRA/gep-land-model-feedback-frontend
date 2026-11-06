@@ -6,6 +6,7 @@ export function getIssueAnswers (request) {
   const issueType = request.yar.get('issueType')
   const answers = {
     issueType,
+    submitterEmail: request.auth?.isAuthenticated ? request.auth.credentials.email ?? null : null,
     description: request.yar.get('issueDescription'),
     files: getEvidenceFiles(request)
   }

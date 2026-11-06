@@ -27,8 +27,8 @@ const logoutController = {
       }
 
       return h.redirect(logoutUrl.href)
-    } catch (error) {
-      request.logger.warn(error, 'Failed to resolve OIDC end_session_endpoint')
+    } catch {
+      request.logger.warn('Failed to resolve OIDC end_session_endpoint')
       return h.redirect('/')
     }
   }

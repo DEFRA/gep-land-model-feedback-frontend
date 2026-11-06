@@ -149,7 +149,6 @@ describe('#sessionStrategy', () => {
 
       expect(result.isValid).toBe(false)
       expect(request.logger.error).toHaveBeenCalledWith(
-        refreshError,
         'User session token refresh failed during validation'
       )
     })

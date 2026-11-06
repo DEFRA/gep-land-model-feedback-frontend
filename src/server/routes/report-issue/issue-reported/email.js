@@ -6,6 +6,7 @@ export async function sendIssueEmail (report, rows, logger) {
   const personalisation = {
     email_subject: `${settings.emailSubject.trim()} - ${report.reference}`,
     reference: report.reference,
+    submitter_email: report.answers.submitterEmail ?? 'Not available',
     answers: rows.map(({ label, lines }) => `${label}:\n${lines.join('\n')}`).join('\n\n'),
     file_downloads: report.answers.files.length
       ? report.answers.files.map(file => `${file.filename}: Download link not yet available`).join('\n')

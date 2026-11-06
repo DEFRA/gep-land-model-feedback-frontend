@@ -99,7 +99,6 @@ describe('#logoutController', () => {
 
     expect(clearUserSession).toHaveBeenCalledWith(request)
     expect(request.logger.warn).toHaveBeenCalledWith(
-      error,
       'Failed to resolve OIDC end_session_endpoint'
     )
     expect(h.redirect).toHaveBeenCalledWith('/')

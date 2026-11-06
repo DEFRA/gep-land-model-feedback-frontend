@@ -2,8 +2,8 @@ import Joi from 'joi'
 import { config } from '#/config/config.js'
 import { logExternalCall } from '../../helpers/logging/logger.js'
 
-async function api (path, options = {}) {
-  const response = await logExternalCall('CDP Uploader', options.method ?? 'GET', () => fetch(`${config.get('uploader.apiUrl').replace(/\/$/, '')}${path}`, {
+async function api (operation, path, options = {}) {
+  const response = await logExternalCall('CDP Uploader', operation, () => fetch(`${config.get('uploader.apiUrl').replace(/\/$/, '')}${path}`, {
     ...options,
     headers: { 'content-type': 'application/json', accept: 'application/json' },
     signal: AbortSignal.timeout(10000)
@@ -20,7 +20,7 @@ export function uploadUrl (id) {
 }
 
 export async function initiateUpload (redirect, token) {
-  const result = await api('/initiate', {
+  const result = await api('initiate upload', '/initiate', {
     method: 'POST',
     body: JSON.stringify({
       redirect,
@@ -38,7 +38,7 @@ export async function initiateUpload (redirect, token) {
 
 export async function getUploadStatus (id, token) {
   // Construct the private endpoint from trusted config, never from browser input or a returned URL.
-  const result = await api(`/status/${id}`)
+  const result = await api('get upload status', `/status/${id}`)
   if (!['initiated', 'pending', 'ready'].includes(result.uploadStatus) || result.metadata?.evidenceToken !== token || !result.form || typeof result.form !== 'object' || Array.isArray(result.form)) {
     throw new Error('Invalid CDP Uploader status response')
   }

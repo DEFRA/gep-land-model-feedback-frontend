@@ -34,9 +34,7 @@ function scheme (_server, options) {
   return {
     authenticate: async function (request, h) {
       if (request.query.error) {
-        logger.error(
-          `OIDC authorization error: ${request.query.error} ${request.query.error_description}`
-        )
+        logger.error('OIDC authorization error')
         return Boom.unauthorized(request.query.error)
       }
 
@@ -49,7 +47,7 @@ function scheme (_server, options) {
           const redirectTo = await preLogin(request, oidcConfig, options)
           return h.redirect(redirectTo).takeover()
         } catch (e) {
-          logger.error(e, 'OIDC pre-login failed')
+          logger.error('OIDC pre-login failed')
           return Boom.unauthorized(e.message)
         }
       } else {
@@ -57,7 +55,7 @@ function scheme (_server, options) {
           const credentials = await postLogin(request, oidcConfig, options)
           return h.authenticated({ credentials })
         } catch (e) {
-          logger.error(e, 'OIDC post-login failed')
+          logger.error('OIDC post-login failed')
           return Boom.unauthorized(e.message)
         }
       }

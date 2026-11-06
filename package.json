@@ -27,11 +27,9 @@
     "prestart": "npm run build:frontend",
     "start": "NODE_ENV=production node .",
     "setup:husky": "node -e \"try { (await import('husky')).default() } catch (e) { if (e.code !== 'ERR_MODULE_NOT_FOUND') throw e }\" --input-type module",
-    "geonetwork:up": "docker compose -f compose.geonetwork.yml up -d --wait --wait-timeout 360",
-    "geonetwork:seed": "node compose/geonetwork/seed.mjs",
-    "geonetwork:down": "docker compose -f compose.geonetwork.yml down",
-    "uploader:up": "docker compose -f compose.uploader.yml up -d --wait --wait-timeout 300",
-    "uploader:down": "docker compose -f compose.uploader.yml down"
+    "services:up": "docker compose up -d --wait --wait-timeout 360 && npm run geonetwork:seed",
+    "services:down": "docker compose down",
+    "geonetwork:seed": "node compose/geonetwork/seed.mjs"
   },
   "imports": {
     "#/*": "./src/*",

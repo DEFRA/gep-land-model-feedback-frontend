@@ -1,60 +1,156 @@
-version: '3.4'
+# Local backing services for the ATLAS issue reporting frontend.
+# Start and seed everything with: npm run services:up
 services:
-  floci:
-    image: hectorvent/floci:latest-aws
-    ports:
-      - '4566:4566'
-    env_file:
-      - 'compose/aws.env'
-    environment:
-      FLOCI_DEFAULT_REGION: eu-west-2
-    volumes:
-      - ./compose/floci/start.d:/etc/floci/init/start.d:ro
-    networks:
-      - cdp-tenant
-
   redis:
     image: redis:7.2.3-alpine3.18
     ports:
-      - '6382:6379'
-    networks:
-      - cdp-tenant
+      - '127.0.0.1:6382:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 3s
+      timeout: 3s
+      retries: 10
 
   keycloak:
     image: quay.io/keycloak/keycloak:26.6.2
     command: start-dev --import-realm --http-port=8081 --http-relative-path=/land-model-feedback
     ports:
-      - '8084:8081'
+      - '127.0.0.1:8084:8081'
     environment:
       KC_HOSTNAME: http://localhost:8084/land-model-feedback
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
       KC_BOOTSTRAP_ADMIN_PASSWORD: admin
     volumes:
-      - ./compose/keycloak/defra-local-realm.json:/opt/keycloak/data/import/defra-local-realm.json
-    networks:
-      - cdp-tenant
-
-  mongodb:
-    image: mongo:7.0.28
-    networks:
-      - cdp-tenant
-    ports:
-      - '27017:27017'
-    volumes:
-      - ./compose/mongo:/docker-entrypoint-initdb.d:ro
-      - mongodb-data:/data
+      - ./compose/keycloak/defra-local-realm.json:/opt/keycloak/data/import/defra-local-realm.json:ro
     healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.hello().ok"]
+      test:
+        - CMD-SHELL
+        - >-
+          bash -ec 'exec 3<>/dev/tcp/localhost/8081;
+          printf "GET /land-model-feedback/realms/defra-local/.well-known/openid-configuration HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n" >&3;
+          read -r status <&3;
+          [[ "$$status" == *" 200 "* ]]'
       interval: 10s
       timeout: 5s
-      retries: 3
+      retries: 30
       start_period: 30s
 
-################################################################################
+  geonetwork:
+    image: geonetwork:4.4.12
+    ports:
+      - '127.0.0.1:8080:8080'
+    environment:
+      DATA_DIR: /catalogue-data
+      WEBAPP_CONTEXT_PATH: /geonetwork
+      GEONETWORK_DB_TYPE: postgres
+      GEONETWORK_DB_HOST: database
+      GEONETWORK_DB_PORT: 5432
+      GEONETWORK_DB_NAME: geonetwork
+      GEONETWORK_DB_USERNAME: geonetwork
+      GEONETWORK_DB_PASSWORD: geonetwork
+      GN_CONFIG_PROPERTIES: >-
+        -Dgeonetwork.dir=/catalogue-data
+        -Dgeonetwork.formatter.dir=/catalogue-data/data/formatter
+        -Dgeonetwork.schema.dir=/opt/geonetwork/WEB-INF/data/config/schema_plugins
+        -Dgeonetwork.indexConfig.dir=/opt/geonetwork/WEB-INF/data/config/index
+        -Des.host=elasticsearch -Des.protocol=http -Des.port=9200
+        -Des.url=http://elasticsearch:9200
+    volumes:
+      - catalogue-data:/catalogue-data
+    depends_on:
+      database:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'curl', '-fsS', 'http://localhost:8080/geonetwork/srv/eng/catalog.search']
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+  database:
+    image: postgis/postgis:17-3.5
+    environment:
+      POSTGRES_USER: geonetwork
+      POSTGRES_PASSWORD: geonetwork
+      POSTGRES_DB: geonetwork
+    volumes:
+      - catalogue-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U geonetwork']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  elasticsearch:
+    image: elasticsearch:8.19.13
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: 'false'
+      xpack.security.enrollment.enabled: 'false'
+      ES_JAVA_OPTS: '-Xms512m -Xmx512m'
+    volumes:
+      - catalogue-index:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ['CMD', 'curl', '-fsS', 'http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s']
+      interval: 10s
+      timeout: 10s
+      retries: 20
 
+  localstack:
+    image: localstack/localstack:3.0.2
+    ports:
+      - '127.0.0.1:4567:4566'
+    env_file: ['compose/uploader/aws.env']
+    environment:
+      SERVICES: s3,sqs,sns,firehose
+      LS_LOG: WARN
+      LOCALSTACK_HOST: localstack
+    volumes:
+      - ./compose/uploader/01-start-localstack.sh:/etc/localstack/init/ready.d/01-start-localstack.sh:ro
+    healthcheck:
+      test: ['CMD', 'stat', '/tmp/READY']
+      interval: 3s
+      start_period: 10s
+      retries: 30
+  uploader-redis:
+    image: redis:7.2.3-alpine3.18
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 3s
+      retries: 10
+  cdp-uploader:
+    image: defradigital/cdp-uploader:${CDP_UPLOADER_VERSION:-latest}
+    ports:
+      - '127.0.0.1:7337:7337'
+    env_file: ['compose/uploader/aws.env']
+    environment:
+      PORT: 7337
+      APP_BASE_URL: http://localhost:7337
+      AWS_EMF_ENVIRONMENT: Local
+      NODE_ENV: development
+      REDIS_HOST: uploader-redis
+      USE_SINGLE_INSTANCE_CACHE: 'true'
+      MOCK_VIRUS_SCAN_ENABLED: 'true'
+      MOCK_VIRUS_RESULT_DELAY: 3
+      CONSUMER_BUCKETS: atlas-feedback-evidence
+      SQS_ENDPOINT: http://localstack:4566
+      S3_ENDPOINT: http://localstack:4566
+    depends_on:
+      localstack:
+        condition: service_healthy
+      uploader-redis:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://localhost:7337/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      start_period: 20s
+      retries: 30
+
+# Retain the existing catalogue volumes when migrating from the standalone stack.
 volumes:
-  mongodb-data:
-
-networks:
-  cdp-tenant:
-    driver: bridge
+  catalogue-data:
+    name: atlas-feedback-geonetwork_catalogue-data
+  catalogue-db:
+    name: atlas-feedback-geonetwork_catalogue-db
+  catalogue-index:
+    name: atlas-feedback-geonetwork_catalogue-index
