@@ -35,7 +35,9 @@ test('retrieves every page using the same inclusion filter', async () => {
   request.mockResolvedValueOnce(response([{ ...hit, _id: 'dataset-2' }], 2))
   expect(await listDatasets()).toHaveLength(2)
   expect(request.mock.calls.map(([, options]) => JSON.parse(options.body).from)).toEqual([0, 1])
-  for (const [, options] of request.mock.calls) expect(JSON.parse(options.body).query.bool.filter).toContainEqual({ terms: { 'cat.keyword': ['datasets'] } })
+  for (const [, options] of request.mock.calls) {
+    expect(JSON.parse(options.body).query.bool.filter).toContainEqual({ terms: { 'cat.keyword': ['datasets'] } })
+  }
 })
 test('returns an empty list for no matches', async () => {
   request.mockResolvedValueOnce(response([]))

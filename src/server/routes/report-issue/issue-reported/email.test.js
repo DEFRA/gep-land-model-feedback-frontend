@@ -110,8 +110,11 @@ test('returns control without retrying before a long Retry-After expires', async
 })
 
 test.each(['apiKey', 'templateId', 'recipient'])('requires %s before sending', async field => {
-  if (field === 'recipient') config.set('supportMailboxAddress', null)
-  else config.set(`notify.${field}`, '')
+  if (field === 'recipient') {
+    config.set('supportMailboxAddress', null)
+  } else {
+    config.set(`notify.${field}`, '')
+  }
   await expect(sendIssueEmail(report, rows, logger)).rejects.toThrow('not configured')
   expect(transport).not.toHaveBeenCalled()
 })

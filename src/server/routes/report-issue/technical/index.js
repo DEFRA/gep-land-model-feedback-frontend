@@ -19,7 +19,7 @@ export const technicalIssue = {
         {
           method: 'GET',
           path: '/report-issue/technical/description',
-          handler: (request, h) => h.redirect('/report-issue/description').code(statusCodes.seeOther)
+          handler: (_request, h) => h.redirect('/report-issue/description').code(statusCodes.seeOther)
         }
       ])
     }

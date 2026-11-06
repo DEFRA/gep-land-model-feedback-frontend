@@ -1,12 +1,15 @@
 import Joi from 'joi'
+import { BYTES_PER_MEGABYTE } from '#/server/common/constants/units.js'
 import { config } from '#/config/config.js'
 import { logExternalCall } from '../../helpers/logging/logger.js'
+
+const REQUEST_TIMEOUT_MS = 10000
 
 async function api (operation, path, options = {}) {
   const response = await logExternalCall('CDP Uploader', operation, () => fetch(`${config.get('uploader.apiUrl').replace(/\/$/, '')}${path}`, {
     ...options,
     headers: { 'content-type': 'application/json', accept: 'application/json' },
-    signal: AbortSignal.timeout(10000)
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
   }))
   if (!response.ok) {
     await response.body?.cancel()
@@ -26,13 +29,15 @@ export async function initiateUpload (redirect, token) {
       redirect,
       s3Bucket: config.get('uploader.bucket'),
       s3Path: 'evidence',
-      maxFileSize: Math.round(config.get('uploader.maxFileSizeMB') * 1000000),
+      maxFileSize: Math.round(config.get('uploader.maxFileSizeMB') * BYTES_PER_MEGABYTE),
       ...(config.get('uploader.allowedMimeTypes').length ? { mimeTypes: config.get('uploader.allowedMimeTypes') } : {}),
       metadata: { evidenceToken: token }
     })
   })
   const { error } = Joi.string().uuid().required().validate(result.uploadId)
-  if (error) throw new Error('Invalid CDP Uploader initiation response')
+  if (error) {
+    throw new Error('Invalid CDP Uploader initiation response')
+  }
   return result.uploadId
 }
 

@@ -1,6 +1,8 @@
 import Joi from 'joi'
 
-export const descriptionSchema = Joi.string().trim().max(2000).required()
+const MAX_DESCRIPTION_LENGTH = 2000
+
+export const descriptionSchema = Joi.string().trim().max(MAX_DESCRIPTION_LENGTH).required()
 
 export function createDescriptionPayloadSchema (otherDataset) {
   return Joi.object({

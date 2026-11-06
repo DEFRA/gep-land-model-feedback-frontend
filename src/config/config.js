@@ -7,6 +7,12 @@ import { registerConfigFormats } from './formats.js'
 
 const dirname = path.dirname(fileURLToPath(import.meta.url))
 
+const developmentPort = 3004
+const productionPort = 3000
+const developmentRedisPort = 6382
+const defaultRedisPort = 6379
+const oneYearMs = 31536000000
+
 const eightHoursMs = 28800000
 const oneDayMs = 86400000
 const oneWeekMs = 604800000
@@ -35,7 +41,7 @@ export const config = convict({
   port: {
     doc: 'The port to bind.',
     format: 'port',
-    default: isDevelopment ? 3004 : 3000,
+    default: isDevelopment ? developmentPort : productionPort,
     env: 'PORT'
   },
   staticCacheTimeout: {
@@ -214,7 +220,7 @@ export const config = convict({
     port: {
       doc: 'Redis cache port',
       format: 'port',
-      default: isDevelopment ? 6382 : 6379,
+      default: isDevelopment ? developmentRedisPort : defaultRedisPort,
       env: 'REDIS_PORT'
     },
     host: {
@@ -367,7 +373,7 @@ export const config = convict({
       ttl: {
         doc: 'Cookie time-to-live in milliseconds (1 year)',
         format: 'nat',
-        default: 1000 * 60 * 60 * 24 * 365
+        default: oneYearMs
       }
     }
   },

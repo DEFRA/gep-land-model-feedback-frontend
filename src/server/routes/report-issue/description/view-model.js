@@ -5,7 +5,9 @@ import { isOtherDataset } from '../helpers/prerequisites.js'
 const question = 'Enter a description of the issue'
 
 function backLink (request) {
-  if (request.yar.get('issueType') !== 'data') return '/report-issue/technical'
+  if (request.yar.get('issueType') !== 'data') {
+    return '/report-issue/technical'
+  }
   return isOtherDataset(request) ? '/report-issue/data' : '/report-issue/data/attributes'
 }
 

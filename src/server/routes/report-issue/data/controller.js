@@ -4,6 +4,8 @@ import { nextPage } from '../navigation.js'
 import { datasetSchema } from './schema.js'
 import { buildDatasetViewModel } from './view-model.js'
 
+const DATASET_TEMPLATE = 'report-issue/data/index'
+
 async function datasetPage (request, h, values, errorField, status = statusCodes.ok) {
   let datasets = []
   let catalogueError = false
@@ -13,13 +15,15 @@ async function datasetPage (request, h, values, errorField, status = statusCodes
     catalogueError = true
     request.logger.error('Failed to load datasets from GeoNetwork')
   }
-  return h.view('report-issue/data/index', buildDatasetViewModel(request, values, datasets, errorField, catalogueError))
+  return h.view(DATASET_TEMPLATE, buildDatasetViewModel(request, values, datasets, errorField, catalogueError))
     .code(catalogueError && values.dataset === 'other' ? statusCodes.serviceUnavailable : status)
 }
 
 export const datasetGetController = {
   handler (request, h) {
-    if (request.yar.get('issueType') !== 'data') return h.redirect('/').code(statusCodes.seeOther)
+    if (request.yar.get('issueType') !== 'data') {
+      return h.redirect('/').code(statusCodes.seeOther)
+    }
     return datasetPage(request, h, { dataset: request.yar.get('dataset'), datasetOtherId: request.yar.get('datasetOtherId') })
   }
 }
@@ -29,7 +33,9 @@ export const datasetPostController = {
     validate: {
       payload: datasetSchema,
       async failAction (request, h, error) {
-        if (request.yar.get('issueType') !== 'data') return h.redirect('/').code(statusCodes.seeOther).takeover()
+        if (request.yar.get('issueType') !== 'data') {
+          return h.redirect('/').code(statusCodes.seeOther).takeover()
+        }
         const field = error.details[0].path[0]
         const response = await datasetPage(request, h, request.payload, field, statusCodes.badRequest)
         return response.takeover()
@@ -37,7 +43,9 @@ export const datasetPostController = {
     }
   },
   async handler (request, h) {
-    if (request.yar.get('issueType') !== 'data') return h.redirect('/').code(statusCodes.seeOther)
+    if (request.yar.get('issueType') !== 'data') {
+      return h.redirect('/').code(statusCodes.seeOther)
+    }
     const { dataset, datasetOtherId } = request.payload
     let selected
     if (dataset === 'other') {
@@ -46,10 +54,12 @@ export const datasetPostController = {
         datasets = await listDatasets()
       } catch {
         request.logger.error('Failed to validate selected GeoNetwork dataset')
-        return h.view('report-issue/data/index', buildDatasetViewModel(request, request.payload, [], undefined, true)).code(statusCodes.serviceUnavailable)
+        return h.view(DATASET_TEMPLATE, buildDatasetViewModel(request, request.payload, [], undefined, true)).code(statusCodes.serviceUnavailable)
       }
       selected = datasets.find(({ id }) => id === datasetOtherId)
-      if (!selected) return h.view('report-issue/data/index', buildDatasetViewModel(request, request.payload, datasets, 'datasetOtherId')).code(statusCodes.badRequest)
+      if (!selected) {
+        return h.view(DATASET_TEMPLATE, buildDatasetViewModel(request, request.payload, datasets, 'datasetOtherId')).code(statusCodes.badRequest)
+      }
     }
     request.yar.set('dataset', dataset)
     request.yar.set('datasetOtherId', selected?.id ?? null)

@@ -28,8 +28,10 @@ and [Land Model Viewer](https://github.com/DEFRA/gep-land-model-viewer-frontend/
 
 Follow the [Defra Node.js standards](https://defra.github.io/software-development-standards/standards/node_standards/)
 and [JavaScript standards](https://defra.github.io/software-development-standards/standards/javascript_standards/):
-use Hapi, ES modules, async/await, the unchanged neostandard ruleset and GOV.UK
-Frontend components. The runtime is pinned to Node 26 Active LTS in `.nvmrc`,
+use Hapi, ES modules, async/await, neostandard and GOV.UK Frontend components.
+ESLint also requires braces around control-flow bodies, consistent returns, and
+named constants for production magic numbers. Numeric test fixtures and array
+indexes are allowed. The runtime is pinned to Node 26 Active LTS in `.nvmrc`,
 `package.json` and the Defra Docker images; use `nvm install && nvm use` after
 updating your checkout. Dependencies are pinned and automated installs use `npm ci`
 with the repository's `.npmrc` settings. Docker builds copy those settings before

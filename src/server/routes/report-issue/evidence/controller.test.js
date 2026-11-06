@@ -229,7 +229,9 @@ test('recovers from expired upload sessions without losing existing attachments'
 })
 
 test('guards workflow steps and authentication on completion and removal', async () => {
-  for (const response of [await visit(path), await visit(`${path}/complete`), await post(`${path}/remove/${fileId}`)]) expect(response.headers.location).toBe('/')
+  for (const response of [await visit(path), await visit(`${path}/complete`), await post(`${path}/remove/${fileId}`)]) {
+    expect(response.headers.location).toBe('/')
+  }
   const response = await server.inject({ url: `${path}/complete` })
   expect(response.statusCode).toBe(302)
   expect(response.headers.location).toMatch(/^\/auth\/login/)

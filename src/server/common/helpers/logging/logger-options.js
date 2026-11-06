@@ -4,6 +4,8 @@ import { getTraceId } from '@defra/hapi-tracing'
 import { config } from '../../../../config/config.js'
 import { statusCodes } from '../../constants/status-codes.js'
 
+const OPERATION_FAILED_MESSAGE = 'Operation failed'
+
 const logConfig = config.get('log')
 const serviceName = config.get('serviceName')
 const serviceVersion = config.get('serviceVersion')
@@ -44,14 +46,14 @@ export const loggerOptions = {
       // Pino derives its message from an Error before applying serializers.
       if (args[0] instanceof Error || args[0]?.err) {
         const context = args[0] instanceof Error ? {} : args[0]
-        return method.call(this, { ...context, err: { message: 'Operation failed' } }, 'Operation failed')
+        return method.call(this, { ...context, err: { message: OPERATION_FAILED_MESSAGE } }, OPERATION_FAILED_MESSAGE)
       }
       return method.apply(this, args)
     }
   },
   serializers: {
     // SDK errors may carry tokens in messages, stacks, headers and nested causes.
-    err: () => ({ message: 'Operation failed' }),
+    err: () => ({ message: OPERATION_FAILED_MESSAGE }),
     req (req) {
       if (req.response?.statusCode >= statusCodes.internalServerError) {
         return {
@@ -59,9 +61,13 @@ export const loggerOptions = {
           path: req.path ?? (typeof req.url === 'string' ? req.url.split('?')[0] : req.url?.pathname)
         }
       }
+      return undefined
     },
     res (res) {
-      if (res.statusCode >= statusCodes.internalServerError) return { statusCode: res.statusCode }
+      if (res.statusCode >= statusCodes.internalServerError) {
+        return { statusCode: res.statusCode }
+      }
+      return undefined
     }
   },
   nesting: true,

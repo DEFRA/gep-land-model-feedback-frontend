@@ -21,7 +21,9 @@ async function api (path, options = {}) {
     cookies.set(name, value.join('='))
   }
   const body = await response.text()
-  if (!response.ok) throw new Error(`${options.method ?? 'GET'} ${path}: HTTP ${response.status}: ${body.slice(0, 500)}`)
+  if (!response.ok) {
+    throw new Error(`${options.method ?? 'GET'} ${path}: HTTP ${response.status}: ${body.slice(0, 500)}`)
+  }
   return body ? JSON.parse(body) : null
 }
 const xmlEscape = value => value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
@@ -53,7 +55,9 @@ for (const record of fixtures) {
   const result = await api(`/records?uuidProcessing=OVERWRITE&group=2&publishToAll=true&category=${category}`, {
     method: 'PUT', headers: { 'content-type': 'application/xml' }, body: xml
   })
-  if (result.numberOfRecordsWithErrors) throw new Error(`Import failed: ${JSON.stringify(result)}`)
+  if (result.numberOfRecordsWithErrors) {
+    throw new Error(`Import failed: ${JSON.stringify(result)}`)
+  }
   console.log(`Imported ${record.title} (${record.category})`)
 }
 // Check publication and indexing through the same anonymous API used by the app.
@@ -65,7 +69,9 @@ for (let attempt = 0; attempt < 30; attempt++) {
     body: JSON.stringify({ size: 10, _source: ['resourceTitleObject.default'], query: { bool: { filter: [{ term: { isTemplate: 'n' } }, { terms: { 'cat.keyword': ['feedback-test'] } }] } } }),
     signal: AbortSignal.timeout(10000)
   })
-  if (!response.ok) throw new Error(`Anonymous verification failed: HTTP ${response.status}`)
+  if (!response.ok) {
+    throw new Error(`Anonymous verification failed: HTTP ${response.status}`)
+  }
   const result = await response.json()
   const ids = result.hits?.hits?.map(hit => hit._id) ?? []
   if (ids.length === 2 && fixtures.filter(record => record.category === 'feedback-test').every(record => ids.includes(record.id))) {
@@ -74,5 +80,7 @@ for (let attempt = 0; attempt < 30; attempt++) {
   }
   await delay(1000)
 }
-if (!verified) throw new Error('Test data was imported but category filtering/public indexing could not be verified')
+if (!verified) {
+  throw new Error('Test data was imported but category filtering/public indexing could not be verified')
+}
 console.log('Verified two public datasets. Use GEONETWORK_DATASET_CATEGORIES=feedback-test to include them.')

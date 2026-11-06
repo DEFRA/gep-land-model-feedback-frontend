@@ -1,4 +1,5 @@
 import { addSeconds, isPast, parseISO } from 'date-fns'
+import { MILLISECONDS_PER_SECOND } from '#/server/common/constants/units.js'
 import { config } from '../../../../config/config.js'
 
 const sessionCookieName = config.get('session.cookie.name')
@@ -74,7 +75,7 @@ async function clearUserSession (request) {
 async function createUserSession (request, sessionId) {
   const credentials = request.auth.credentials
   const expiresInSeconds = credentials.expiresIn
-  const expiresInMilliSeconds = expiresInSeconds * 1000
+  const expiresInMilliSeconds = expiresInSeconds * MILLISECONDS_PER_SECOND
   const expiresAt = addSeconds(new Date(), expiresInSeconds).toISOString()
 
   const claims = credentials.claims
@@ -109,7 +110,7 @@ async function updateUserSession (request, refreshTokenResponse, previousSession
     throw new TypeError('Refresh token response did not include expires_in')
   }
 
-  const expiresInMilliSeconds = expiresInSeconds * 1000
+  const expiresInMilliSeconds = expiresInSeconds * MILLISECONDS_PER_SECOND
   const expiresAt = addSeconds(new Date(), expiresInSeconds).toISOString()
 
   const session = {

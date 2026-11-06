@@ -7,21 +7,15 @@ export function parseUploadResults (status, uploadId) {
   const results = asFileList(formFiles)
   const accepted = []
   const errors = []
-  if (!results.length) errors.push('Select a file')
+  if (!results.length) {
+    errors.push('Select a file')
+  }
   for (const file of results) {
     if (file?.hasError === true || file?.fileStatus === 'rejected') {
-      const message = typeof file.errorMessage === 'string' ? file.errorMessage : 'The selected file could not be uploaded – try again'
-      errors.push(typeof file.filename === 'string' ? `${file.filename}: ${message}` : message)
+      errors.push(rejectedFileMessage(file))
       continue
     }
-    const { value, error } = fileSchema.validate(file)
-    if (error || file.fileStatus !== 'complete') {
-      throw new Error('Incomplete evidence upload result')
-    }
-    if (value.s3Bucket !== config.get('uploader.bucket') || !value.s3Key.startsWith(`evidence/${uploadId}/`)) {
-      throw new Error('Evidence upload result belongs to a different destination')
-    }
-    accepted.push({ ...value, uploadId })
+    accepted.push(validateAcceptedFile(file, uploadId))
   }
   if (!Number.isInteger(status.numberOfRejectedFiles) || status.numberOfRejectedFiles !== results.length - accepted.length) {
     throw new Error('Inconsistent evidence upload results')
@@ -30,6 +24,24 @@ export function parseUploadResults (status, uploadId) {
 }
 
 function asFileList (files) {
-  if (files === undefined) return []
+  if (files === undefined) {
+    return []
+  }
   return Array.isArray(files) ? files : [files]
+}
+
+function rejectedFileMessage (file) {
+  const message = typeof file.errorMessage === 'string' ? file.errorMessage : 'The selected file could not be uploaded – try again'
+  return typeof file.filename === 'string' ? `${file.filename}: ${message}` : message
+}
+
+function validateAcceptedFile (file, uploadId) {
+  const { value, error } = fileSchema.validate(file)
+  if (error || file.fileStatus !== 'complete') {
+    throw new Error('Incomplete evidence upload result')
+  }
+  if (value.s3Bucket !== config.get('uploader.bucket') || !value.s3Key.startsWith(`evidence/${uploadId}/`)) {
+    throw new Error('Evidence upload result belongs to a different destination')
+  }
+  return { ...value, uploadId }
 }

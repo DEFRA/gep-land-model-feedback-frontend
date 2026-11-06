@@ -9,9 +9,13 @@ import { sendIssueEmail } from './email.js'
 export const submitIssueController = {
   async handler (request, h) {
     const redirect = getEvidenceRedirect(request)
-    if (redirect) return h.redirect(redirect).code(statusCodes.seeOther)
+    if (redirect) {
+      return h.redirect(redirect).code(statusCodes.seeOther)
+    }
     const uploadRedirect = await checkEvidenceUpload(request, h)
-    if (uploadRedirect) return uploadRedirect
+    if (uploadRedirect) {
+      return uploadRedirect
+    }
     const answers = getIssueAnswers(request)
     const report = getOrCreateReceipt(answers, request.yar.get('reportedIssue'))
     request.yar.set('reportedIssue', report)
@@ -31,7 +35,9 @@ export const submitIssueController = {
 export const issueReportedController = {
   handler (request, h) {
     const reportedIssue = request.yar.get('reportedIssue')
-    if (!reportedIssue?.notification) return h.redirect('/report-issue/check-your-answers').code(statusCodes.seeOther)
+    if (!reportedIssue?.notification) {
+      return h.redirect('/report-issue/check-your-answers').code(statusCodes.seeOther)
+    }
     return h.view('report-issue/issue-reported/index', {
       pageTitle: 'Issue reported',
       reference: reportedIssue.reference,

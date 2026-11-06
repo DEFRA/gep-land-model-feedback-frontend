@@ -24,7 +24,9 @@ describe.each([
     const { createServer } = await import('../server.js')
     server = await createServer()
     await server.initialize()
-    if (required === undefined) expect(config.get('auth.required')).toBe(true)
+    if (required === undefined) {
+      expect(config.get('auth.required')).toBe(true)
+    }
   })
   afterAll(async () => {
     await server.stop({ timeout: 0 })

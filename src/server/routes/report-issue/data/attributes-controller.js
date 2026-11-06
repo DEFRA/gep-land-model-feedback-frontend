@@ -7,7 +7,9 @@ import { buildAttributesViewModel } from './view-model.js'
 export const attributesController = {
   handler (request, h) {
     const redirect = getAttributesRedirect(request)
-    if (redirect) return h.redirect(redirect).code(statusCodes.seeOther)
+    if (redirect) {
+      return h.redirect(redirect).code(statusCodes.seeOther)
+    }
     return h.view('report-issue/data/attributes', buildAttributesViewModel(request, request.yar.get('incorrectAttributes')))
   }
 }
@@ -18,14 +20,18 @@ export const attributesPostController = {
       payload: attributesPayloadSchema,
       failAction (request, h) {
         const redirect = getAttributesRedirect(request)
-        if (redirect) return h.redirect(redirect).code(statusCodes.seeOther).takeover()
+        if (redirect) {
+          return h.redirect(redirect).code(statusCodes.seeOther).takeover()
+        }
         return h.view('report-issue/data/attributes', buildAttributesViewModel(request, request.payload.attributes, true)).code(statusCodes.badRequest).takeover()
       }
     }
   },
   handler (request, h) {
     const redirect = getAttributesRedirect(request)
-    if (redirect) return h.redirect(redirect).code(statusCodes.seeOther)
+    if (redirect) {
+      return h.redirect(redirect).code(statusCodes.seeOther)
+    }
     request.yar.set('incorrectAttributes', request.payload.attributes)
     return h.redirect(nextPage(request, '/report-issue/description')).code(statusCodes.seeOther)
   }

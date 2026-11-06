@@ -12,7 +12,9 @@ beforeAll(async () => {
     options: { auth: false },
     handler (request) {
       if (request.query.seed) {
-        for (const key of keys) request.yar.set(key, `private-${key}`)
+        for (const key of keys) {
+          request.yar.set(key, `private-${key}`)
+        }
         request.sessionCookie.set({ sessionId: 'previous-session' })
       }
       return Object.fromEntries(keys.map(key => [key, request.yar.get(key)]))
@@ -48,7 +50,9 @@ test.each(['logout', 'login'])('%s invalidates old authentication and workflow s
   expect(await server.session.get('previous-session')).toBeNull()
   const replay = await server.inject({ url: '/test-session', headers: { cookie } })
   expect(replay.statusCode).toBe(200)
-  for (const key of keys) expect(replay.result[key]).toBeNull()
+  for (const key of keys) {
+    expect(replay.result[key]).toBeNull()
+  }
   if (action === 'login') {
     expect(response.payload).toContain("URL='/'")
     const authCookie = response.headers['set-cookie'].find(value => value.startsWith(`${config.get('session.cookie.name')}=`))

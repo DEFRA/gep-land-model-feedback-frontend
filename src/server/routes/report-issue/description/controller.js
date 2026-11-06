@@ -7,7 +7,9 @@ import { buildViewModel } from './view-model.js'
 export const descriptionController = {
   handler (request, h) {
     const redirect = getDescriptionRedirect(request)
-    if (redirect) return h.redirect(redirect).code(statusCodes.seeOther)
+    if (redirect) {
+      return h.redirect(redirect).code(statusCodes.seeOther)
+    }
     return h.view('report-issue/description/index', buildViewModel(request, request.yar.get('issueDescription')))
   }
 }
@@ -15,7 +17,9 @@ export const descriptionController = {
 export const descriptionPostController = {
   handler (request, h) {
     const redirect = getDescriptionRedirect(request)
-    if (redirect) return h.redirect(redirect).code(statusCodes.seeOther)
+    if (redirect) {
+      return h.redirect(redirect).code(statusCodes.seeOther)
+    }
     const other = isOtherDataset(request)
     const { value, error } = createDescriptionPayloadSchema(other).validate(request.payload, { stripUnknown: true, abortEarly: false })
     if (error) {

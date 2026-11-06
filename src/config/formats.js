@@ -1,8 +1,14 @@
+import { BYTES_PER_MEGABYTE } from '#/server/common/constants/units.js'
+
+const MAX_EMAIL_SUBJECT_LENGTH = 200
+
 export function registerConfigFormats (convict) {
   convict.addFormat({
     name: 'positive-megabytes',
     validate (value) {
-      if (value * 1000000 < 1 || !Number.isSafeInteger(Math.round(value * 1000000))) throw new Error('Use a positive number of megabytes representing at least one byte')
+      if (value * BYTES_PER_MEGABYTE < 1 || !Number.isSafeInteger(Math.round(value * BYTES_PER_MEGABYTE))) {
+        throw new Error('Use a positive number of megabytes representing at least one byte')
+      }
     },
     coerce: Number
   })
@@ -14,7 +20,9 @@ export function registerConfigFormats (convict) {
       }
     },
     coerce (value) {
-      if (typeof value !== 'string') return value
+      if (typeof value !== 'string') {
+        return value
+      }
       return value.trim() ? value.split(',').map(type => type.trim().toLowerCase()) : []
     }
   })
@@ -30,7 +38,7 @@ export function registerConfigFormats (convict) {
   convict.addFormat({
     name: 'email-subject',
     validate (value) {
-      if (typeof value !== 'string' || !value.trim() || /[\r\n]/.test(value) || value.length > 200) {
+      if (typeof value !== 'string' || !value.trim() || /[\r\n]/.test(value) || value.length > MAX_EMAIL_SUBJECT_LENGTH) {
         throw new Error('Use a non-blank, single-line email title of at most 200 characters')
       }
     }
@@ -38,7 +46,9 @@ export function registerConfigFormats (convict) {
   convict.addFormat({
     name: 'http-origin-or-empty',
     validate (value) {
-      if (value === '') return
+      if (value === '') {
+        return
+      }
       const url = new URL(value)
       if (!['http:', 'https:'].includes(url.protocol) || url.pathname !== '/' || url.search || url.hash || url.username || url.password) {
         throw new Error('Use an HTTP(S) origin or an empty value')

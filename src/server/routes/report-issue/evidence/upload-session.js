@@ -15,10 +15,14 @@ export function uploadProblem (request, h, retryUrl = evidencePath) {
 // Used at review and Submit as well as the evidence page: pending scans cannot be skipped.
 export async function checkEvidenceUpload (request, h) {
   const active = request.yar.get('evidenceUpload')
-  if (!active) return null
+  if (!active) {
+    return null
+  }
   try {
     const status = await getUploadStatus(active.id, active.token)
-    if (status.uploadStatus !== 'initiated') return h.redirect(`${completePath}?uploadId=${active.id}`).code(statusCodes.seeOther)
+    if (status.uploadStatus !== 'initiated') {
+      return h.redirect(`${completePath}?uploadId=${active.id}`).code(statusCodes.seeOther)
+    }
     return null
   } catch (error) {
     if (error.statusCode === statusCodes.notFound) {

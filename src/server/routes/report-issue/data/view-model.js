@@ -10,7 +10,9 @@ const attributesMessage = 'Select which attributes are incorrect'
 export function buildDatasetViewModel (request, values, datasets, errorField, catalogueError = false) {
   const text = errorField === 'datasetOtherId' ? 'Select a dataset' : 'Select which dataset the issue is within'
   const errorList = errorField ? [{ text, href: errorField === 'datasetOtherId' ? '#dataset-other' : '#dataset' }] : []
-  if (catalogueError && values.dataset === 'other') errorList.push({ text: 'Datasets could not be loaded. Try again.', href: '#dataset-other' })
+  if (catalogueError && values.dataset === 'other') {
+    errorList.push({ text: 'Datasets could not be loaded. Try again.', href: '#dataset-other' })
+  }
   return {
     ...getChangeNavigation(request, '/report-issue/data', '/'),
     ...buildFormPage(datasetQuestion, errorList),
