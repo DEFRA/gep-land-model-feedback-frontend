@@ -27,10 +27,10 @@ export class CognitoFederatedCredentialProvider {
     try {
       const command = new GetOpenIdTokenForDeveloperIdentityCommand(input)
       const result = await logExternalCall('Cognito', 'GetOpenIdTokenForDeveloperIdentity', () => this.client.send(command))
-      logger.info(`Got token from Cognito ${result?.IdentityId}`)
+      logger.info('Received token from Cognito')
       return result.Token
     } catch (e) {
-      logger.error(e, 'Failed to get Cognito Token')
+      logger.error('Failed to get Cognito Token')
       throw e
     }
   }
@@ -61,8 +61,8 @@ export function tokenHasExpired (token) {
   try {
     const decodedToken = jwt.token.decode(token)
     jwt.token.verifyTime(decodedToken)
-  } catch (e) {
-    logger.debug(e, 'Cognito token has expired')
+  } catch {
+    logger.debug('Cognito token has expired')
     return true
   }
   return false

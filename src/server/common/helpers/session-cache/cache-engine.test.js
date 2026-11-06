@@ -6,6 +6,12 @@ import { Engine as CatboxMemory } from '@hapi/catbox-memory'
 import { getCacheEngine } from './cache-engine.js'
 import { config } from '#/config/config.js'
 
+const originalSettings = { production: config.get('isProduction'), test: config.get('isTest') }
+afterEach(() => {
+  config.set('isProduction', originalSettings.production)
+  config.set('isTest', originalSettings.test)
+})
+
 const mockLoggerInfo = vi.fn()
 const mockLoggerError = vi.fn()
 
@@ -61,23 +67,21 @@ describe('#getCacheEngine', () => {
   describe('When In memory cache engine has been requested in Production', () => {
     beforeEach(() => {
       config.set('isProduction', true)
-      getCacheEngine()
+      config.set('isTest', false)
     })
 
-    test('Should log Production warning message', () => {
+    test('rejects process-local sessions in production', () => {
+      expect(() => getCacheEngine('memory')).toThrow('Production sessions require a distributed Redis cache')
+      expect(CatboxMemory).not.toHaveBeenCalled()
       expect(mockLoggerError).toHaveBeenCalledWith(
         'Catbox Memory is for local development only, it should not be used in production!'
       )
     })
 
-    test('Should setup In memory cache', () => {
-      expect(CatboxMemory).toHaveBeenCalledTimes(1)
-    })
-
-    test('Should log expected message', () => {
-      expect(mockLoggerInfo).toHaveBeenCalledWith(
-        'Using Catbox Memory session cache'
-      )
+    test('allows offline tests to exercise production behaviour without Redis', () => {
+      config.set('isTest', true)
+      getCacheEngine('memory')
+      expect(CatboxMemory).toHaveBeenCalledOnce()
     })
   })
 })

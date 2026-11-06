@@ -5,7 +5,7 @@ import { config } from '../../../../config/config.js'
 
 const logger = createLogger()
 
-const DISCOVERY_CACHE_TTL = 60 * 60 * 1000 // 1 hour
+const DISCOVERY_CACHE_TTL = 3600000 // 1 hour in milliseconds
 
 /**
  * @typedef {object} OidcClient

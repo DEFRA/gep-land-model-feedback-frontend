@@ -27,17 +27,19 @@ function createMockOidc (endSessionEndpoint) {
 
 describe('#logoutController', () => {
   test('redirects to / when no user session', async () => {
-    const request = { auth: { credentials: null } }
+    const request = { yar: { reset: vi.fn() }, auth: { credentials: null } }
     const h = { redirect: vi.fn() }
 
     await logoutController.handler(request, h)
 
     expect(h.redirect).toHaveBeenCalledWith('/')
-    expect(clearUserSession).not.toHaveBeenCalled()
+    expect(clearUserSession).toHaveBeenCalledWith(request)
+    expect(request.yar.reset).toHaveBeenCalledOnce()
   })
 
   test('clears session and redirects to end_session_endpoint', async () => {
     const request = {
+      yar: { reset: vi.fn() },
       auth: {
         credentials: {
           id: 'user-1',
@@ -52,6 +54,7 @@ describe('#logoutController', () => {
     await logoutController.handler(request, h)
 
     expect(clearUserSession).toHaveBeenCalledWith(request)
+    expect(request.yar.reset).toHaveBeenCalledOnce()
 
     const redirectUrl = new URL(h.redirect.mock.calls[0][0])
     expect(redirectUrl.origin + redirectUrl.pathname).toBe(mockEndpoint)
@@ -61,6 +64,7 @@ describe('#logoutController', () => {
 
   test('redirects to / when provider has no end_session_endpoint', async () => {
     const request = {
+      yar: { reset: vi.fn() },
       auth: {
         credentials: {
           id: 'user-1',
@@ -74,12 +78,14 @@ describe('#logoutController', () => {
     await logoutController.handler(request, h)
 
     expect(clearUserSession).toHaveBeenCalledWith(request)
+    expect(request.yar.reset).toHaveBeenCalledOnce()
     expect(h.redirect).toHaveBeenCalledWith('/')
   })
 
   test('logs warning and redirects to / when getConfig fails', async () => {
     const error = new Error('discovery failed')
     const request = {
+      yar: { reset: vi.fn() },
       auth: {
         credentials: {
           id: 'user-1',
@@ -98,8 +104,8 @@ describe('#logoutController', () => {
     await logoutController.handler(request, h)
 
     expect(clearUserSession).toHaveBeenCalledWith(request)
+    expect(request.yar.reset).toHaveBeenCalledOnce()
     expect(request.logger.warn).toHaveBeenCalledWith(
-      error,
       'Failed to resolve OIDC end_session_endpoint'
     )
     expect(h.redirect).toHaveBeenCalledWith('/')

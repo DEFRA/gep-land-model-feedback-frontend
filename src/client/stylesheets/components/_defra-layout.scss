@@ -1,5 +1,16 @@
 @use '../variables/colours' as *;
 
+.govuk-template__body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+// Keep the GOV.UK width container inside a full-width flex item.
+.app-page-content {
+  flex: 1 0 auto;
+}
+
 .defra-width-container {
   max-width: 960px;
   margin: 0 auto;
@@ -153,37 +164,36 @@ body {
   padding-bottom: 10px;
 }
 
-// stylelint-disable declaration-no-important
 .defra-breadcrumbs--inverse {
   margin-top: -30px;
   margin-bottom: 20px;
   padding-top: 0;
 
   &.govuk-breadcrumbs {
-    color: $govuk-white !important;
+    color: $govuk-white;
   }
 
   .govuk-breadcrumbs__list-item {
     &::before {
-      border-color: $govuk-white !important;
-      color: $govuk-white !important;
+      border-color: $govuk-white;
+      color: $govuk-white;
     }
   }
 
   .govuk-breadcrumbs__link {
-    color: $govuk-white !important;
+    color: $govuk-white;
     text-decoration: none;
     padding-block: 2px;
 
     &:hover,
     &:focus {
-      color: $govuk-white !important;
+      color: $govuk-white;
       text-decoration: underline;
     }
 
     &:focus {
-      background-color: $govuk-yellow !important;
-      color: $govuk-black !important;
+      background-color: $govuk-yellow;
+      color: $govuk-black;
       box-shadow:
         0 -2px $govuk-yellow,
         0 4px $govuk-black;

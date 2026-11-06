@@ -1,5 +1,5 @@
 import { authCallbackController } from './callback.js'
-import { createUserSession } from '../common/helpers/auth/user-session.js'
+import { createUserSession, clearUserSession } from '../common/helpers/auth/user-session.js'
 
 vi.mock('../common/helpers/auth/user-session.js')
 
@@ -27,6 +27,7 @@ describe('#authCallbackController', () => {
 
     const takeover = vi.fn()
     const request = {
+      yar: { reset: vi.fn() },
       auth: {
         isAuthenticated: true,
         credentials: { referrer: '/search' }
@@ -40,6 +41,10 @@ describe('#authCallbackController', () => {
 
     await authCallbackController.handler(request, h)
 
+    expect(clearUserSession).toHaveBeenCalledWith(request)
+    expect(request.yar.reset).toHaveBeenCalledOnce()
+    expect(clearUserSession.mock.invocationCallOrder[0]).toBeLessThan(request.yar.reset.mock.invocationCallOrder[0])
+    expect(request.yar.reset.mock.invocationCallOrder[0]).toBeLessThan(mockCreateUserSession.mock.invocationCallOrder[0])
     expect(mockCreateUserSession).toHaveBeenCalledWith(request, expect.any(String))
     expect(request.sessionCookie.set).toHaveBeenCalledWith({
       sessionId: expect.any(String)
@@ -52,6 +57,7 @@ describe('#authCallbackController', () => {
   test('Should redirect to / when no referrer', async () => {
     const takeover = vi.fn()
     const request = {
+      yar: { reset: vi.fn() },
       auth: {
         isAuthenticated: false,
         credentials: {}

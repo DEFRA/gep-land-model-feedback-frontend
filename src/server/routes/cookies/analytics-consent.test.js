@@ -29,7 +29,9 @@ describe.each([undefined, '', 'GTM-TEST123'])('analytics configuration %s', (key
     const $ = load(response.payload)
     expect($('.js-cookies-container')).toHaveLength(key ? 1 : 0)
     expect(response.payload).not.toContain('gtm.start')
-    if (key) expect($('input[name="returnUrl"]').val()).toBe('/')
+    if (key) {
+      expect($('input[name="returnUrl"]').val()).toBe('/')
+    }
   })
 
   test('always hides the banner on the cookies page and gates optional controls', async () => {
@@ -59,8 +61,10 @@ describe.each([undefined, '', 'GTM-TEST123'])('analytics configuration %s', (key
     expect($('.js-cookies-container')).toHaveLength(0)
   })
 
-  test('native consent submissions preserve the original query string', async () => {
-    if (!key) return
+  test('native consent submissions preserve the original query string', async (context) => {
+    if (!key) {
+      context.skip()
+    }
     const response = await server.inject({ url: '/?q=water&sort=titleAsc', auth: mockAuthCredentials })
     const $ = load(response.payload)
     expect($('input[name="returnUrl"]').val()).toBe('/?q=water&sort=titleAsc')
@@ -80,7 +84,9 @@ describe.each([undefined, '', 'GTM-TEST123'])('analytics configuration %s', (key
     const $ = load(response.payload)
     const script = $('script').filter((_, element) => $(element).text().includes("'consent', 'default'"))
     expect(script).toHaveLength(key ? 1 : 0)
-    if (!key) return
+    if (!key) {
+      return
+    }
     const window = {}
     runInNewContext(script.text(), { window, gtag: (...args) => window.gtag(...args) })
     const consent = window.dataLayer.map((args) => Array.from(args))

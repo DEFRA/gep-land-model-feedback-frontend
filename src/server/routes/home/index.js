@@ -1,4 +1,4 @@
-import { homeController } from './controller.js'
+import { homeController, issueTypeController } from './controller.js'
 
 /**
  * Sets up the routes used in the home page.
@@ -13,6 +13,11 @@ export const home = {
           method: 'GET',
           path: '/',
           ...homeController
+        },
+        {
+          method: 'POST',
+          path: '/',
+          ...issueTypeController
         }
       ])
     }

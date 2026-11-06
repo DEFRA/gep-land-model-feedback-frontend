@@ -3,6 +3,8 @@ import { config } from '#/config/config.js'
 import { isSafeRedirect } from '#/server/common/helpers/is-safe-redirect.js'
 import { updatePolicy } from '#/server/common/helpers/cookie-policy-manager.js'
 
+const MAX_RETURN_URL_LENGTH = 2000
+
 export const cookiePolicyController = {
   method: 'GET',
   path: '/cookies',
@@ -33,7 +35,7 @@ export const updateCookiePreferencesController = {
       payload: Joi.object().keys({
         analytics: Joi.boolean().required(),
         async: Joi.boolean().default(false),
-        returnUrl: Joi.string().allow('').max(2000).optional()
+        returnUrl: Joi.string().allow('').max(MAX_RETURN_URL_LENGTH).optional()
       })
     }
   },

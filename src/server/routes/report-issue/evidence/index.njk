@@ -1,0 +1,48 @@
+{% extends 'layouts/page.njk' %}
+{% from "govuk/components/back-link/macro.njk" import govukBackLink %}
+{% from "govuk/components/file-upload/macro.njk" import govukFileUpload %}
+{% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
+{% from "govuk/components/table/macro.njk" import govukTable %}
+{% from "govuk/components/button/macro.njk" import govukButton %}
+
+{% block beforeContent %}
+  {{ govukBackLink({ text: "Back", href: backLink }) }}
+{% endblock %}
+
+{% block content %}
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      {% if errorSummary %}{{ govukErrorSummary(errorSummary) }}{% endif %}
+      <h1 class="govuk-heading-l">Add any evidence of the issue</h1>
+      {% if files.length %}
+        <h2 class="govuk-heading-m">Uploaded files</h2>
+        {% set fileRows = [] %}
+        {% for file in files %}
+          {% set removeForm %}
+            <form action="{{ file.removeAction }}" method="post">
+              <input type="hidden" name="crumb" value="{{ crumb }}">
+              {% set removeLabel %}Remove<span class="govuk-visually-hidden"> {{ file.filename }}</span>{% endset %}
+              {{ govukButton({ html: removeLabel, classes: "govuk-button--secondary govuk-!-margin-bottom-0" }) }}
+            </form>
+          {% endset %}
+          {% set fileRows = fileRows.concat([[{ text: file.filename }, { text: "Uploaded" }, { html: removeForm }]]) %}
+        {% endfor %}
+        {{ govukTable({ head: [{ text: "File name" }, { text: "Status" }, { text: "Action" }], rows: fileRows }) }}
+      {% endif %}
+      <form action="{{ action }}" method="post" enctype="multipart/form-data">
+        {{ govukFileUpload({
+          id: "evidence-files", name: "evidenceFiles",
+          label: { text: "Upload files", classes: "govuk-label--m" },
+          hint: { text: "Choose one or more files, then select Upload files. Each file must be " + maxFileSizeMB + " MB or smaller. " + ("Allowed file types: " + allowedMimeTypes + ". " if allowedMimeTypes else "") + "You can continue without adding evidence." },
+          attributes: { accept: allowedMimeTypes } if allowedMimeTypes else {},
+          chooseFilesButtonText: "Choose files",
+          dropInstructionText: "or drop files",
+          noFileChosenText: "No files chosen",
+          errorMessage: fileError, javascript: true, multiple: true
+        }) }}
+        {{ govukButton({ text: "Upload files", classes: "govuk-button--secondary" }) }}
+      </form>
+      {{ govukButton({ text: "Continue", href: "/report-issue/check-your-answers" }) }}
+    </div>
+  </div>
+{% endblock %}

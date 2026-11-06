@@ -1,3 +1,4 @@
+import { config } from '#/config/config.js'
 import Blankie from 'blankie'
 
 /**
@@ -10,8 +11,7 @@ const contentSecurityPolicy = {
     defaultSrc: ['self'],
     connectSrc: [
       'self',
-      'wss',
-      'data:',
+      ...(config.get('isDevelopment') ? ['ws:', 'wss:'] : []),
       'https://www.google.com',
       'https://*.google-analytics.com',
       'https://*.analytics.google.com',
@@ -30,7 +30,7 @@ const contentSecurityPolicy = {
     ],
     styleSrc: ['self'],
     frameAncestors: ['none'],
-    formAction: ['self'],
+    formAction: ['self', ...(config.get('uploader.publicUrl') ? [new URL(config.get('uploader.publicUrl')).origin] : [])],
     manifestSrc: ['self'],
     generateNonces: true
   }

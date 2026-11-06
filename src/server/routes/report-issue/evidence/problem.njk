@@ -1,0 +1,13 @@
+{% extends 'layouts/page.njk' %}
+{% from "govuk/components/back-link/macro.njk" import govukBackLink %}
+{% block beforeContent %}
+  {{ govukBackLink({ text: "Back", href: "/report-issue/description" }) }}
+{% endblock %}
+{% block content %}
+  <div class="govuk-grid-row"><div class="govuk-grid-column-two-thirds">
+    <h1 class="govuk-heading-l">{{ pageTitle }}</h1>
+    <p class="govuk-body">Your files could not be uploaded or checked. Any files already uploaded are still attached to your issue.</p>
+    <p class="govuk-body"><a class="govuk-link" href="{{ retryUrl }}">Try again</a></p>
+    {% if continueUrl %}<p class="govuk-body"><a class="govuk-link" href="{{ continueUrl }}">Continue without adding more files</a></p>{% endif %}
+  </div></div>
+{% endblock %}

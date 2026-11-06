@@ -100,15 +100,20 @@ describe('banner submissions', () => {
     if (analytics) {
       expect(globalThis.gtag.mock.invocationCallOrder[0]).toBeLessThan(append.mock.invocationCallOrder[0])
     }
-    if (!analytics) expect(document.cookie).not.toContain('_ga')
+    if (!analytics) {
+      expect(document.cookie).not.toContain('_ga')
+    }
     confirmation.querySelector('button').click()
     expect(document.querySelector('.js-cookies-container').hidden).toBe(true)
   })
 
   test.each(['network', 'http'])('falls back to a native form with the chosen preference after %s failure', async (failure) => {
     document.body.innerHTML = bannerHtml
-    if (failure === 'network') globalThis.fetch.mockRejectedValue(new Error('offline'))
-    else globalThis.fetch.mockResolvedValue({ ok: false })
+    if (failure === 'network') {
+      globalThis.fetch.mockRejectedValue(new Error('offline'))
+    } else {
+      globalThis.fetch.mockResolvedValue({ ok: false })
+    }
     const form = document.querySelector('form')
     const submit = vi.spyOn(form, 'submit').mockImplementation(() => {})
     initCookieBanner()
@@ -138,8 +143,11 @@ describe('page initialisation', () => {
   })
   test.each(['banner', 'gtm'])('preserves cookies when %s is present', (mode) => {
     document.cookie = '_ga=test; path=/'
-    if (mode === 'banner') document.body.innerHTML = bannerHtml
-    else loadGoogleTagManager('GTM-TEST123')
+    if (mode === 'banner') {
+      document.body.innerHTML = bannerHtml
+    } else {
+      loadGoogleTagManager('GTM-TEST123')
+    }
     initCookiesPage()
     expect(document.cookie).toContain('_ga')
   })
@@ -147,7 +155,11 @@ describe('page initialisation', () => {
     const reload = vi.fn()
     vi.spyOn(globalThis, 'location', 'get').mockReturnValue({ hostname: 'localhost', reload })
     let handler
-    vi.spyOn(globalThis, 'addEventListener').mockImplementation((name, callback) => { if (name === 'pageshow') handler = callback })
+    vi.spyOn(globalThis, 'addEventListener').mockImplementation((name, callback) => {
+      if (name === 'pageshow') {
+        handler = callback
+      }
+    })
     initCookiesPage()
     document.cookie = '_ga=test; path=/'
     handler({ persisted: false })

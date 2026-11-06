@@ -20,19 +20,23 @@ import { metrics } from '@defra/cdp-metrics'
 
 import { setupCaches } from './common/helpers/session/setup-caches.js'
 import { getUserSession } from './common/helpers/auth/decorators.js'
+import { getLocalAuthBypassHost } from './common/helpers/auth/local-auth.js'
 import { oidcClient } from './common/helpers/auth/oidc-client.js'
 import { federatedOidc } from './common/helpers/auth/federated-oidc.js'
 import { cognitoClientAssertion } from './common/helpers/auth/client-assertion/cognito.js'
 import { mockClientAssertion } from './common/helpers/auth/client-assertion/mock.js'
 import { sessionStrategy } from './common/helpers/auth/session-strategy.js'
 import { setCacheHeaders } from './common/helpers/cache-headers.js'
+import { validateProductionConfig } from './common/helpers/validate-production-config.js'
 
 export async function createServer () {
+  validateProductionConfig(config)
+  const localAuthBypassHost = getLocalAuthBypassHost()
   const server = hapi.server({
-    host: config.get('host'),
+    host: localAuthBypassHost ?? config.get('host'),
     port: config.get('port'),
     routes: {
-      auth: { mode: 'required' },
+      auth: localAuthBypassHost ? false : { mode: 'required' },
       validate: {
         options: {
           abortEarly: false
@@ -79,6 +83,10 @@ export async function createServer () {
     secureContext,
     pulse
   ])
+
+  if (localAuthBypassHost) {
+    server.logger.warn('Authentication is disabled for local development; listening on loopback only')
+  }
 
   const credentialProvider = config.get('cognito.enabled')
     ? cognitoClientAssertion

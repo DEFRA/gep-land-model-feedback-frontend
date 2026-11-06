@@ -85,12 +85,12 @@ describe('#buildRedisClient', () => {
 
     test('Should log on error', () => {
       const client = buildRedisClient(config.get('redis'))
-      const error = new Error('connection refused')
+      const error = new Error('connection failed with private-marker')
 
       client._trigger('error', error)
 
       expect(mockLoggerError).toHaveBeenCalledWith(
-        `Redis connection error ${error}`
+        'Redis connection error'
       )
     })
   })

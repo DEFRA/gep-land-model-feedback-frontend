@@ -2,7 +2,8 @@ import { randomUUID } from 'node:crypto'
 
 import Boom from '@hapi/boom'
 
-import { createUserSession } from '../common/helpers/auth/user-session.js'
+import { createUserSession, clearUserSession } from '../common/helpers/auth/user-session.js'
+import { getSafeRedirect } from '../common/helpers/get-safe-redirect.js'
 import { redirectWithRefresh } from '../common/helpers/url/url-helpers.js'
 
 const authCallbackController = {
@@ -16,21 +17,21 @@ const authCallbackController = {
     let redirect = '/'
     if (request.auth.isAuthenticated) {
       const sessionId = randomUUID()
+      await clearUserSession(request)
+      request.yar.reset()
 
       request.logger.info('Creating user session')
-      const userSession = await createUserSession(request, sessionId)
+      await createUserSession(request, sessionId)
 
       request.sessionCookie.set({ sessionId })
-      request.logger.info(
-        `User logged in UserId: ${userSession.id} displayName: ${userSession.displayName}`
-      )
+      request.logger.info('User logged in')
 
       if (request.auth.credentials.referrer) {
-        redirect = request.auth.credentials.referrer
+        redirect = getSafeRedirect(request.auth.credentials.referrer)
       }
     }
 
-    request.logger.info(`Login complete, redirecting user to ${redirect}`)
+    request.logger.info('Login complete')
     return redirectWithRefresh(h, redirect)
   }
 }

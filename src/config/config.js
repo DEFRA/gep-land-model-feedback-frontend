@@ -3,8 +3,15 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import convictFormatWithValidator from 'convict-format-with-validator'
+import { registerConfigFormats } from './formats.js'
 
 const dirname = path.dirname(fileURLToPath(import.meta.url))
+
+const developmentPort = 3004
+const productionPort = 3000
+const developmentRedisPort = 6382
+const defaultRedisPort = 6379
+const oneYearMs = 31536000000
 
 const eightHoursMs = 28800000
 const oneDayMs = 86400000
@@ -15,6 +22,7 @@ const isTest = process.env.NODE_ENV === 'test'
 const isDevelopment = process.env.NODE_ENV === 'development'
 
 convict.addFormats(convictFormatWithValidator)
+registerConfigFormats(convict)
 
 export const config = convict({
   serviceVersion: {
@@ -33,7 +41,7 @@ export const config = convict({
   port: {
     doc: 'The port to bind.',
     format: 'port',
-    default: isDevelopment ? 3004 : 3000,
+    default: isDevelopment ? developmentPort : productionPort,
     env: 'PORT'
   },
   staticCacheTimeout: {
@@ -50,7 +58,35 @@ export const config = convict({
   serviceDisplayName: {
     doc: 'Human-readable service name shown in the UI',
     format: String,
-    default: 'Defra Group Land Model Feedback'
+    default: 'Defra Group Land Model Issue Reporting'
+  },
+  supportMailboxAddress: {
+    doc: 'Destination mailbox for issue report emails, shown on the Issue reported page',
+    format: 'email',
+    nullable: true,
+    default: 'example@example.com',
+    env: 'SUPPORT_MAILBOX_ADDRESS'
+  },
+  notify: {
+    apiKey: {
+      doc: 'GOV.UK Notify API key for sending issue report emails',
+      format: String,
+      sensitive: true,
+      default: '',
+      env: 'GOV_UK_NOTIFY_API_KEY'
+    },
+    templateId: {
+      doc: 'GOV.UK Notify email template ID; required when submitting an issue',
+      format: 'optional-uuid',
+      default: '',
+      env: 'GOV_UK_NOTIFY_TEMPLATE_ID'
+    },
+    emailSubject: {
+      doc: 'Issue report email subject prefix; the reference number is appended',
+      format: 'email-subject',
+      default: 'ATLAS issue report',
+      env: 'GOV_UK_NOTIFY_EMAIL_SUBJECT'
+    }
   },
   root: {
     doc: 'Project root',
@@ -184,7 +220,7 @@ export const config = convict({
     port: {
       doc: 'Redis cache port',
       format: 'port',
-      default: isDevelopment ? 6382 : 6379,
+      default: isDevelopment ? developmentRedisPort : defaultRedisPort,
       env: 'REDIS_PORT'
     },
     host: {
@@ -223,6 +259,14 @@ export const config = convict({
       format: Boolean,
       default: isProduction,
       env: 'REDIS_TLS'
+    }
+  },
+  auth: {
+    required: {
+      doc: 'Require authentication; false is honoured only for loopback local development',
+      format: Boolean,
+      default: true,
+      env: 'AUTH_REQUIRED'
     }
   },
   oidc: {
@@ -329,8 +373,40 @@ export const config = convict({
       ttl: {
         doc: 'Cookie time-to-live in milliseconds (1 year)',
         format: 'nat',
-        default: 1000 * 60 * 60 * 24 * 365
+        default: oneYearMs
       }
+    }
+  },
+  uploader: {
+    apiUrl: {
+      doc: 'Internal CDP Uploader API base URL',
+      format: 'url',
+      default: 'http://localhost:7337',
+      env: 'CDP_UPLOADER_URL'
+    },
+    publicUrl: {
+      doc: 'Browser-facing uploader origin; empty uses the same-origin CDP upload route',
+      format: 'http-origin-or-empty',
+      default: isProduction ? '' : 'http://localhost:7337',
+      env: 'CDP_UPLOADER_PUBLIC_URL'
+    },
+    bucket: {
+      doc: 'CDP-approved destination bucket for clean issue evidence',
+      format: String,
+      default: 'atlas-feedback-evidence',
+      env: 'EVIDENCE_S3_BUCKET'
+    },
+    maxFileSizeMB: {
+      doc: 'Maximum evidence file size in megabytes (1 MB = 1,000,000 bytes)',
+      format: 'positive-megabytes',
+      default: 100,
+      env: 'EVIDENCE_MAX_FILE_SIZE_MB'
+    },
+    allowedMimeTypes: {
+      doc: 'Comma-separated allowed evidence MIME types; empty allows all types',
+      format: 'mime-type-list',
+      default: [],
+      env: 'EVIDENCE_ALLOWED_MIME_TYPES'
     }
   },
   geonetwork: {
@@ -341,7 +417,7 @@ export const config = convict({
       env: 'GEONETWORK_API_URL'
     },
     datasetCategories: {
-      doc: 'Comma-separated catalogue category IDs; match any, or leave empty for all categories',
+      doc: 'Comma-separated catalogue category names; include matches from any, or leave empty for all categories',
       format: Array,
       default: [],
       env: 'GEONETWORK_DATASET_CATEGORIES'

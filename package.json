@@ -6,7 +6,7 @@
   "main": "src/index.js",
   "type": "module",
   "engines": {
-    "node": ">=24 <25"
+    "node": ">=26 <27"
   },
   "scripts": {
     "build:frontend": "vite build",
@@ -22,11 +22,14 @@
     "test": "AWS_EMF_ENVIRONMENT=Local TZ=UTC vitest run --coverage",
     "test:watch": "AWS_EMF_ENVIRONMENT=Local TZ=UTC vitest",
     "security-audit": "npm audit --audit-level=high",
-    "server:watch": "nodemon --inspect=0.0.0.0 --ext js,json --legacy-watch --watch ./src/server --watch ./src/config --env-file-if-exists=.env ./src",
-    "server:debug": "nodemon --inspect-brk=0.0.0.0 --ext js,json --legacy-watch --watch ./src/server --watch ./src/config --env-file-if-exists=.env ./src",
+    "server:watch": "nodemon --inspect=127.0.0.1 --ext js,json --legacy-watch --watch ./src/server --watch ./src/config --env-file-if-exists=.env ./src",
+    "server:debug": "nodemon --inspect-brk=127.0.0.1 --ext js,json --legacy-watch --watch ./src/server --watch ./src/config --env-file-if-exists=.env ./src",
     "prestart": "npm run build:frontend",
     "start": "NODE_ENV=production node .",
-    "setup:husky": "node -e \"try { (await import('husky')).default() } catch (e) { if (e.code !== 'ERR_MODULE_NOT_FOUND') throw e }\" --input-type module"
+    "setup:husky": "node -e \"try { (await import('husky')).default() } catch (e) { if (e.code !== 'ERR_MODULE_NOT_FOUND') throw e }\" --input-type module",
+    "services:up": "docker compose up -d --wait --wait-timeout 360 && npm run geonetwork:seed",
+    "services:down": "docker compose down",
+    "geonetwork:seed": "node compose/geonetwork/seed.mjs"
   },
   "imports": {
     "#/*": "./src/*",
@@ -52,6 +55,7 @@
     "@hapi/scooter": "8.0.0",
     "@hapi/vision": "7.0.3",
     "@hapi/yar": "11.0.3",
+    "axios": "1.21.0",
     "blankie": "5.0.0",
     "convict": "6.2.5",
     "convict-format-with-validator": "6.2.0",
@@ -74,6 +78,7 @@
     "@babel/preset-env": "8.0.7",
     "@defra/hapi-connect": "1.0.2",
     "@vitest/coverage-v8": "4.1.12",
+    "axe-core": "4.14.0",
     "cheerio": "1.2.0",
     "eslint": "9.39.5",
     "husky": "9.1.7",
@@ -94,6 +99,7 @@
     },
     "blankie": {
       "@hapi/joi": "npm:joi@17.13.9"
-    }
+    },
+    "minimatch@^10": "11.0.1"
   }
 }

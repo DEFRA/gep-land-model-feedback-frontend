@@ -25,7 +25,7 @@ describe('#errors', () => {
     })
 
     expect(result).toEqual(
-      expect.stringContaining('Page not found | Defra Group Land Model Feedback')
+      expect.stringContaining('Page not found | Defra Group Land Model Issue Reporting')
     )
     expect(statusCode).toBe(statusCodes.notFound)
   })
@@ -115,7 +115,7 @@ describe('#catchAll', () => {
   test('Should provide expected "Something went wrong" page and log error for internalServerError', () => {
     catchAll(mockRequest(statusCodes.internalServerError), mockToolkit)
 
-    expect(mockErrorLogger).toHaveBeenCalledWith(mockStack)
+    expect(mockErrorLogger).toHaveBeenCalledWith({ statusCode: 500 }, 'Request failed')
     expect(mockToolkitView).toHaveBeenCalledWith(errorPage, {
       pageTitle: 'Something went wrong',
       heading: statusCodes.internalServerError,

@@ -20,7 +20,9 @@ vi.mock(import('#/config/config.js'), async (importOriginal) => {
   return {
     config: {
       get (key) {
-        if (key === 'isProduction') return true
+        if (key === 'isProduction') {
+          return true
+        }
         return originalModule.config.get(key)
       }
     }
@@ -72,7 +74,7 @@ describe('context and cache', () => {
               href: '/about'
             }
           ],
-          serviceName: 'Defra Group Land Model Feedback',
+          serviceName: 'Defra Group Land Model Issue Reporting',
           serviceUrl: '/'
         })
       })
@@ -161,7 +163,7 @@ describe('context and cache', () => {
               href: '/about'
             }
           ],
-          serviceName: 'Defra Group Land Model Feedback',
+          serviceName: 'Defra Group Land Model Issue Reporting',
           serviceUrl: '/'
         })
       })

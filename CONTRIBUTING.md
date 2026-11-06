@@ -10,7 +10,7 @@ This project follows [Gitflow](https://defra.github.io/software-development-stan
 
 ### Day-to-day work
 
-Create feature branches from `develop` using kebab-case names, e.g. `feature/add-search-page` or `feature/GEP-123/add-search-page`. The task reference is optional. Open a PR targeting `develop`.
+Create feature branches from `develop` using kebab-case names, e.g. `feature/add-search-page` or `feature/ATLAS-123/add-search-page`. The task reference is optional. Open a PR targeting `develop`.
 
 ### Releases
 

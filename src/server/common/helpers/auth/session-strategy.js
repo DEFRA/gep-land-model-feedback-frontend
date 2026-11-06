@@ -16,6 +16,8 @@ const sessionStrategy = {
           path: '/',
           password: sessionCookieConfig.password,
           isSecure: sessionCookieConfig.secure,
+          isHttpOnly: true,
+          isSameSite: 'Strict',
           ttl: sessionCookieConfig.ttl,
           clearInvalid: true
         },
@@ -46,9 +48,8 @@ const sessionStrategy = {
               request,
               userSession
             ) ?? userSession
-          } catch (error) {
+          } catch {
             request.logger.error(
-              error,
               'User session token refresh failed during validation'
             )
             return { isValid: false }
