@@ -86,7 +86,10 @@ The configured Pino logger supplies the existing trace context. Logs exclude
 request/response bodies, URLs, headers, credentials, tokens and raw SDK error
 objects. Cognito token failures additionally log an `awsError` object containing
 the exception name, message, code, HTTP status and AWS request ID when available.
-Other authentication error handlers use fixed messages.
+OIDC pre-login and post-login failures log an `oidcError` object with the exception
+name, message, code, HTTP status, OAuth error and description, nested cause code,
+and provider correlation/trace IDs when available. These are error-level entries;
+`LOG_LEVEL=info` includes them. Request/response objects and full causes are not copied.
 `LOG_ENABLED=false` disables logging. Restart the app after changing these values.
 
 When adding a new external API operation, wrap the actual asynchronous call with

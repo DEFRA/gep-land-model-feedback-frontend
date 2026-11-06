@@ -3,6 +3,7 @@ import * as _openid from 'openid-client'
 import { config as _config } from '../../../../config/config.js'
 
 import { federatedOidc } from './federated-oidc.js'
+import { createLogger } from '../logging/logger.js'
 
 vi.mock('openid-client')
 const openid = vi.mocked(_openid)
@@ -266,6 +267,65 @@ describe('#federatedOidc', () => {
 
       expect(Boom.isBoom(result)).toBe(true)
       expect(result.output.statusCode).toBe(401)
+    })
+
+    test('logs OAuth diagnostics without copying tokens, headers or callback parameters', async () => {
+      const authenticate = getAuthenticate(createMockServer())
+      const request = createMockRequest({ code: 'private-authorization-code' })
+      request.yar.get.mockReturnValue({ codeVerifier: 'private-verifier' })
+      const error = Object.assign(new Error('Token endpoint rejected the client'), {
+        name: 'ResponseBodyError',
+        code: 'OAUTH_RESPONSE_BODY_ERROR',
+        status: 400,
+        error: 'invalid_client',
+        error_description: 'AADSTS: No matching federated identity credential',
+        cause: { correlation_id: 'correlation-id', trace_id: 'trace-id', access_token: 'private-token' },
+        response: { headers: { authorization: 'private-header' }, status: 400 }
+      })
+      openid.authorizationCodeGrant.mockRejectedValue(error)
+      const logError = vi.spyOn(createLogger(), 'error').mockImplementation(() => {})
+      try {
+        const result = await authenticate(request, createMockH())
+        expect(result.output.statusCode).toBe(401)
+        expect(logError).toHaveBeenCalledExactlyOnceWith({
+          oidcError: {
+            name: 'ResponseBodyError',
+            message: 'Token endpoint rejected the client',
+            code: 'OAUTH_RESPONSE_BODY_ERROR',
+            statusCode: 400,
+            oauthError: 'invalid_client',
+            oauthDescription: 'AADSTS: No matching federated identity credential',
+            causeCode: undefined,
+            correlationId: 'correlation-id',
+            traceId: 'trace-id'
+          }
+        }, 'OIDC post-login failed')
+        expect(JSON.stringify(logError.mock.calls)).not.toContain('private-')
+      } finally {
+        logError.mockRestore()
+      }
+    })
+
+    test.each([
+      [{ code: 'ECONNRESET' }, undefined, undefined],
+      [{ error: 'invalid_grant', error_description: 'Code expired' }, 'invalid_grant', 'Code expired']
+    ])('logs nested failure details when top-level OAuth fields are absent: %j', async (cause, oauthError, oauthDescription) => {
+      const authenticate = getAuthenticate(createMockServer())
+      const request = createMockRequest({ code: 'auth-code' })
+      request.yar.get.mockReturnValue({ codeVerifier: 'stored-verifier' })
+      openid.authorizationCodeGrant.mockRejectedValue(Object.assign(new Error('Exchange failed'), {
+        cause,
+        response: { status: 502 }
+      }))
+      const logError = vi.spyOn(createLogger(), 'error').mockImplementation(() => {})
+      try {
+        await authenticate(request, createMockH())
+        expect(logError).toHaveBeenCalledWith({
+          oidcError: expect.objectContaining({ statusCode: 502, causeCode: cause.code, oauthError, oauthDescription })
+        }, 'OIDC post-login failed')
+      } finally {
+        logError.mockRestore()
+      }
     })
 
     test('returns 401 when preLogin fails', async () => {
