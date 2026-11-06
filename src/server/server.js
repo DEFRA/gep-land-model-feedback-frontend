@@ -6,6 +6,7 @@ import { router } from './plugins/router.js'
 import { config } from '../config/config.js'
 import { pulse } from './plugins/pulse.js'
 import { catchAll } from './common/helpers/errors.js'
+import { setupProxy } from './common/helpers/proxy/setup-proxy.js'
 import { nunjucksConfig } from '../config/nunjucks/nunjucks.js'
 import { requestTracing } from './plugins/request-tracing.js'
 import { requestLogger } from './common/helpers/logging/request-logger.js'
@@ -30,6 +31,7 @@ import { setCacheHeaders } from './common/helpers/cache-headers.js'
 import { validateProductionConfig } from './common/helpers/validate-production-config.js'
 
 export async function createServer () {
+  setupProxy()
   validateProductionConfig(config)
   const localAuthBypassHost = getLocalAuthBypassHost()
   const server = hapi.server({

@@ -30,7 +30,15 @@ export class CognitoFederatedCredentialProvider {
       logger.info('Received token from Cognito')
       return result.Token
     } catch (e) {
-      logger.error('Failed to get Cognito Token')
+      logger.error({
+        awsError: {
+          name: e.name,
+          message: e.message,
+          code: e.code,
+          statusCode: e.$metadata?.httpStatusCode,
+          requestId: e.$metadata?.requestId
+        }
+      }, 'Failed to get Cognito Token')
       throw e
     }
   }
