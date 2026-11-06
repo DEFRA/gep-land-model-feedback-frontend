@@ -1,4 +1,6 @@
+vi.mock('./notification.js', () => ({ sendIssueEmail: vi.fn(async () => ({ id: 'notify-id', recipient: 'atlas-support@example.com' })) }))
 vi.mock('#/server/datasets/geonetwork/catalogue.js', () => ({ listDatasets: vi.fn(async () => []) }))
+import { sendIssueEmail } from './notification.js'
 import { load } from 'cheerio'
 import { createServer } from '#/server/server.js'
 import { config } from '#/config/config.js'
@@ -16,6 +18,7 @@ beforeAll(async () => {
 afterAll(async () => server.stop({ timeout: 0 }))
 beforeEach(() => {
   cookies = new Map()
+  sendIssueEmail.mockReset().mockResolvedValue({ id: 'notify-id', recipient: 'atlas-support@example.com' })
   config.set('supportMailboxAddress', 'atlas-support@example.com')
 })
 afterEach(() => config.set('supportMailboxAddress', originalMailbox))
@@ -90,6 +93,7 @@ test('refresh and repeated POST reuse the same reference; edits produce a new re
   expect(load(reload.payload)('.govuk-panel__body strong').text()).toBe(receipt.reference)
   expect(reload.request.yar.get('reportedIssue')).toEqual(receipt)
   expect((await submit(reviewPath)).request.yar.get('reportedIssue')).toEqual(receipt)
+  expect(sendIssueEmail).toHaveBeenCalledOnce()
   await submit('/report-issue/description?returnTo=check-your-answers', { issueDescription: 'Changed description' })
   const existing = await visit(reportedPath)
   expect(existing.request.yar.get('reportedIssue').answers.description).toBe('Example issue description')
@@ -99,16 +103,13 @@ test('refresh and repeated POST reuse the same reference; edits produce a new re
   expect(updated.answers.description).toBe('Changed description')
 })
 
-test('uses the current configured mailbox and omits the email sentence when unset', async () => {
+test('confirmation retains the actual recipient even if configuration subsequently changes', async () => {
   await start('technical')
   await submit(reviewPath)
   config.set('supportMailboxAddress', 'another-support@example.com')
-  expect(load((await visit(reportedPath)).payload)('a[href="mailto:another-support@example.com"]')).toHaveLength(1)
+  expect(load((await visit(reportedPath)).payload)('a[href="mailto:atlas-support@example.com"]')).toHaveLength(1)
   config.set('supportMailboxAddress', null)
-  const response = await visit(reportedPath)
-  expect(response.statusCode).toBe(200)
-  expect(load(response.payload)('a[href^="mailto:"]')).toHaveLength(0)
-  expect(response.payload).not.toContain('We have sent a confirmation email')
+  expect(load((await visit(reportedPath)).payload)('a[href="mailto:atlas-support@example.com"]')).toHaveLength(1)
 })
 
 test('does not create a receipt by opening the confirmation URL or skipping earlier steps', async () => {
@@ -135,6 +136,47 @@ test('does not create a receipt by opening the confirmation URL or skipping earl
   await check('/report-issue/data/attributes')
   await submit('/report-issue/data/attributes', { attributes: 'soils' })
   await check('/report-issue/description')
+})
+
+test('failed email preserves the reference and answers, blocks confirmation and allows a successful retry', async () => {
+  await start('technical')
+  sendIssueEmail.mockRejectedValueOnce(new Error('Temporarily unavailable'))
+  const failed = await submit(reviewPath)
+  expect(failed.statusCode).toBe(503)
+  const receipt = failed.request.yar.get('reportedIssue')
+  expect(receipt.notification).toBeUndefined()
+  expect(load(failed.payload)('h1').text()).toBe('There is a problem submitting your issue')
+  expect(load(failed.payload)('form').attr('method')).toBe('post')
+  expect(load(failed.payload)('input[name="crumb"]').val()).toBeTruthy()
+  expect((await visit(reportedPath)).headers.location).toBe(reviewPath)
+  const retry = await submit(reviewPath)
+  expect(retry.headers.location).toBe(reportedPath)
+  expect(retry.request.yar.get('reportedIssue')).toMatchObject({ id: receipt.id, reference: receipt.reference, answers: receipt.answers, notification: { id: 'notify-id' } })
+  expect(sendIssueEmail).toHaveBeenCalledTimes(2)
+})
+
+test.each(['data', 'technical'])('email receives the same %s answers as Check your answers', async issueType => {
+  const review = await start(issueType)
+  const $ = load(review.payload)
+  const expected = $('.govuk-summary-list__row').map((_, element) => [{
+    label: $(element).find('.govuk-summary-list__key').text().trim(),
+    lines: $(element).find('.govuk-summary-list__value').html().trim().split('<br>')
+  }]).get()
+  await submit(reviewPath)
+  expect(sendIssueEmail.mock.calls[0][1].map(({ label, lines }) => ({ label, lines }))).toEqual(expected)
+})
+
+test('waits for Notify acceptance before redirecting to confirmation', async () => {
+  await start('technical')
+  let accept
+  sendIssueEmail.mockImplementationOnce(() => new Promise(resolve => { accept = resolve }))
+  const sending = submit(reviewPath)
+  let finished = false
+  sending.then(() => { finished = true })
+  await vi.waitFor(() => expect(accept).toBeTypeOf('function'))
+  expect(finished).toBe(false)
+  accept({ id: 'accepted-id', recipient: 'atlas-support@example.com' })
+  expect((await sending).headers.location).toBe(reportedPath)
 })
 
 test('submission requires CSRF and authentication and confirmations stay within their session', async () => {

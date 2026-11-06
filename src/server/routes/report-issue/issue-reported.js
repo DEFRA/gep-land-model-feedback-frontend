@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
-import { config } from '#/config/config.js'
 import { getEvidenceRedirect, checkEvidenceUpload, evidenceFiles } from './evidence.js'
+import { checkAnswersRows } from './check-your-answers.js'
+import { sendIssueEmail } from './notification.js'
 
 function reportAnswers (request) {
   const issueType = request.yar.get('issueType')
@@ -31,13 +32,24 @@ export const submitIssueController = {
     const answers = reportAnswers(request)
     const previous = request.yar.get('reportedIssue')
     // Repeated submission of the same answers reuses the existing receipt.
-    if (!previous || JSON.stringify(previous.answers) !== JSON.stringify(answers)) {
+    let report = previous
+    if (!report || JSON.stringify(report.answers) !== JSON.stringify(answers)) {
       const id = randomUUID()
-      request.yar.set('reportedIssue', {
+      report = {
         id,
         reference: id.replaceAll('-', '').slice(0, 12).toUpperCase(),
         answers
-      })
+      }
+      request.yar.set('reportedIssue', report)
+    }
+    if (!report.notification) {
+      try {
+        report.notification = await sendIssueEmail(report, checkAnswersRows(request), request.logger)
+        request.yar.set('reportedIssue', report)
+      } catch {
+        request.logger.error({ reference: report.reference }, 'Unable to submit issue email')
+        return h.view('report-issue/submission-problem', { pageTitle: 'There is a problem submitting your issue', reference: report.reference }).code(503)
+      }
     }
     return h.redirect('/report-issue/issue-reported').code(303)
   }
@@ -46,11 +58,11 @@ export const submitIssueController = {
 export const issueReportedController = {
   handler (request, h) {
     const reportedIssue = request.yar.get('reportedIssue')
-    if (!reportedIssue) return h.redirect('/report-issue/check-your-answers').code(303)
+    if (!reportedIssue?.notification) return h.redirect('/report-issue/check-your-answers').code(303)
     return h.view('report-issue/issue-reported', {
       pageTitle: 'Issue reported',
       reference: reportedIssue.reference,
-      supportMailboxAddress: config.get('supportMailboxAddress')
+      supportMailboxAddress: reportedIssue.notification.recipient
     })
   }
 }

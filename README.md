@@ -300,8 +300,10 @@ validation errors retain this flag. If changing the issue type requires missing
 answers in the new branch, the normal workflow guards send the user to the next
 required step. Arbitrary return URLs are ignored. Back returns to the evidence
 page. Submit is a CSRF-protected POST to `/report-issue/check-your-answers`.
-It revalidates the workflow prerequisites, records a receipt in the Yar session
-and redirects with HTTP 303 to `/report-issue/issue-reported`.
+It revalidates the workflow prerequisites, records an answer snapshot and reference
+in the Yar session, and sends an issue report email through GOV.UK Notify. Only
+after Notify accepts the email does it redirect with HTTP 303 to
+`/report-issue/issue-reported`.
 
 The **Issue reported** page uses the GOV.UK confirmation Panel. Its reference is
 the first 12 hexadecimal characters of a server-generated `crypto.randomUUID()`,
@@ -309,24 +311,80 @@ with hyphens removed and letters uppercased. The full UUID is retained as the
 receipt ID alongside an answer snapshot. The shortened display reference is
 randomised, not a guarantee of global uniqueness. Refreshing the confirmation or
 posting the same answers again reuses the receipt; submitting changed answers
-creates a new one. Opening the confirmation URL without a receipt returns to the
-review page. Receipts are session-scoped and expire with the session.
+creates a new one. Opening the confirmation URL without an email accepted by
+Notify returns to the review page. Receipts are session-scoped and expire with the session.
 
-Set the support contact address through configuration:
+### Issue report email (GOV.UK Notify)
+
+Configure the existing destination mailbox and Notify settings:
 
 ```dotenv
 SUPPORT_MAILBOX_ADDRESS=atlas-support@example.com
+GOV_UK_NOTIFY_API_KEY=your-notify-api-key
+GOV_UK_NOTIFY_TEMPLATE_ID=your-email-template-uuid
+GOV_UK_NOTIFY_EMAIL_SUBJECT=ATLAS issue report
 ```
 
-Use your real support mailbox in deployed environments. The value is validated
-as an email address and displayed as a `mailto:` link on the confirmation page.
-If unset, the email sentence is omitted. No address is hard-coded into the
-page. The confirmation wording matches the prototype, including “We have sent a
-confirmation email to …” before “What happens next”. Email delivery remains a
-future integration; this wording currently forms part of the frontend scaffold.
+Store the API key as a secret in deployed environments. It is marked sensitive in
+configuration and is never logged. The app can start without Notify credentials,
+but submission fails safely until the API key, template ID and destination mailbox
+are configured. Replace the example support mailbox with the real destination.
+The template ID must be a UUID and the subject prefix must be a non-blank single
+line of at most 200 characters. The reference is always appended, for example
+`ATLAS issue report - A1B2C3D4E5F6`.
 
-This completes the frontend workflow scaffold. Receipts are stored only in the
-session cache; no external case system, durable report store or email delivery is
+Create a Notify **email** template with this subject:
+
+```text
+((email_subject))
+```
+
+For its body, use:
+
+```text
+Issue reference: ((reference))
+
+((answers))
+
+File downloads
+((file_downloads))
+```
+
+`answers` contains the same labels and values shown on Check your answers, including
+multiline descriptions, the selected workflow's answers and filenames. The page
+and email share the same row builder. `file_downloads` lists each filename followed
+by `Download link not yet available`, or `No files added`. These are placeholders;
+no download endpoint, signed link or attachment delivery is implemented. Private
+S3 keys are not included in the email.
+
+Requests time out after 10 seconds. Temporary network errors, HTTP 408, 429 and
+5xx responses are retried up to three attempts in total, with 1-second then
+2-second backoff. A valid `Retry-After` is honoured for waits up to 5 seconds;
+longer waits return the retry page immediately rather than retrying too early.
+Permanent errors such as invalid credentials or template configuration are not
+automatically retried. Logs record the reference, attempt and status without SDK
+error objects, credentials, email addresses or answer contents.
+
+If sending fails, a GOV.UK-styled page returns HTTP 503, preserves the answers,
+files and reference in the session, and offers a CSRF-protected **Try again** POST.
+The confirmation URL stays unavailable until Notify accepts the email. Retrying
+unchanged answers reuses the reference. Refreshing confirmation or submitting an
+already accepted, unchanged report does not send another email. The confirmation
+shows the recipient used for that submission, even if configuration later changes.
+
+Notify acceptance is not a guarantee of inbox delivery. The full report UUID is
+sent as Notify's tracking reference; this is not an idempotency key. A lost response
+after acceptance can result in a duplicate email when retried. Retries are bounded
+within the request; there is no background queue after the user leaves. Use Notify's
+dashboard to investigate delivery status using the reference.
+
+For local testing, configure a Notify test API key and an email template with the
+placeholders above, then complete either workflow. Notify test keys simulate sending
+without delivering emails. The automated tests use mocked transport and never send
+real emails; they cover payload content, file placeholders, retries, timeouts,
+permanent errors, failed-submit recovery and confirmation gating.
+
+Receipts remain session-scoped; no external case system or durable report store is
 integrated yet. Clean evidence is stored by CDP Uploader in the configured S3 bucket;
 file IDs, upload IDs, names, sizes, checksums and S3 references are included in the
 session receipt. Removing an attachment removes its report reference, not the S3

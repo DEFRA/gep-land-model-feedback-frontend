@@ -69,11 +69,36 @@ export const config = convict({
     default: 'Defra Group Land Model Issue Reporting'
   },
   supportMailboxAddress: {
-    doc: 'Support contact email address shown on the Issue reported page',
+    doc: 'Destination mailbox for issue report emails, shown on the Issue reported page',
     format: 'email',
     nullable: true,
     default: 'example@example.com',
     env: 'SUPPORT_MAILBOX_ADDRESS'
+  },
+  notify: {
+    apiKey: {
+      doc: 'GOV.UK Notify API key for sending issue report emails',
+      format: String,
+      sensitive: true,
+      default: '',
+      env: 'GOV_UK_NOTIFY_API_KEY'
+    },
+    templateId: {
+      doc: 'GOV.UK Notify email template ID; required when submitting an issue',
+      format (value) {
+        if (value !== '' && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) throw new Error('Use a template UUID or leave empty')
+      },
+      default: '',
+      env: 'GOV_UK_NOTIFY_TEMPLATE_ID'
+    },
+    emailSubject: {
+      doc: 'Issue report email subject prefix; the reference number is appended',
+      format (value) {
+        if (typeof value !== 'string' || !value.trim() || /[\r\n]/.test(value) || value.length > 200) throw new Error('Use a non-blank, single-line email title of at most 200 characters')
+      },
+      default: 'ATLAS issue report',
+      env: 'GOV_UK_NOTIFY_EMAIL_SUBJECT'
+    }
   },
   root: {
     doc: 'Project root',

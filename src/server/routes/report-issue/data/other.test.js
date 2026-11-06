@@ -1,3 +1,4 @@
+vi.mock('../notification.js', () => ({ sendIssueEmail: vi.fn(async () => ({ id: 'notify-id', recipient: 'atlas-support@example.com' })) }))
 import { load } from 'cheerio'
 import { createServer } from '#/server/server.js'
 import { mockAuthCredentials } from '#/server/common/test-helpers/auth.js'
