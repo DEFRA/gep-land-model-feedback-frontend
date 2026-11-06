@@ -1,0 +1,68 @@
+# Optional standalone catalogue for local dropdown testing.
+# Based on https://github.com/geonetwork/docker-geonetwork/tree/main/4.4.12
+name: atlas-feedback-geonetwork
+services:
+  geonetwork:
+    image: geonetwork:4.4.12
+    ports:
+      - '127.0.0.1:8080:8080'
+    environment:
+      DATA_DIR: /catalogue-data
+      WEBAPP_CONTEXT_PATH: /geonetwork
+      GEONETWORK_DB_TYPE: postgres
+      GEONETWORK_DB_HOST: database
+      GEONETWORK_DB_PORT: 5432
+      GEONETWORK_DB_NAME: geonetwork
+      GEONETWORK_DB_USERNAME: geonetwork
+      GEONETWORK_DB_PASSWORD: geonetwork
+      GN_CONFIG_PROPERTIES: >-
+        -Dgeonetwork.dir=/catalogue-data
+        -Dgeonetwork.formatter.dir=/catalogue-data/data/formatter
+        -Dgeonetwork.schema.dir=/opt/geonetwork/WEB-INF/data/config/schema_plugins
+        -Dgeonetwork.indexConfig.dir=/opt/geonetwork/WEB-INF/data/config/index
+        -Des.host=elasticsearch -Des.protocol=http -Des.port=9200
+        -Des.url=http://elasticsearch:9200
+    volumes:
+      - catalogue-data:/catalogue-data
+    depends_on:
+      database:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'curl', '-fsS', 'http://localhost:8080/geonetwork/srv/eng/catalog.search']
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+  database:
+    image: postgis/postgis:17-3.5
+    environment:
+      POSTGRES_USER: geonetwork
+      POSTGRES_PASSWORD: geonetwork
+      POSTGRES_DB: geonetwork
+    volumes:
+      - catalogue-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U geonetwork']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  elasticsearch:
+    image: elasticsearch:8.19.13
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: 'false'
+      xpack.security.enrollment.enabled: 'false'
+      ES_JAVA_OPTS: '-Xms512m -Xmx512m'
+    volumes:
+      - catalogue-index:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ['CMD', 'curl', '-fsS', 'http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s']
+      interval: 10s
+      timeout: 10s
+      retries: 20
+volumes:
+  catalogue-data:
+  catalogue-db:
+  catalogue-index:

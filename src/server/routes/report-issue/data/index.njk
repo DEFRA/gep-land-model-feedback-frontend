@@ -2,6 +2,7 @@
 {% from "govuk/components/back-link/macro.njk" import govukBackLink %}
 {% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
 {% from "govuk/components/radios/macro.njk" import govukRadios %}
+{% from "govuk/components/select/macro.njk" import govukSelect %}
 {% from "govuk/components/button/macro.njk" import govukButton %}
 
 {% block beforeContent %}
@@ -11,6 +12,18 @@
   <div class="govuk-grid-row">
     <div class="govuk-grid-column-two-thirds">
       {% if errorSummary %}{{ govukErrorSummary(errorSummary) }}{% endif %}
+      {% set otherSelect %}
+        {% if catalogueError %}
+          <p class="govuk-body">Datasets could not be loaded. <a class="govuk-link" href="{{ formAction }}">Try again</a>.</p>
+        {% elif not datasets.length %}
+          <p class="govuk-body">No datasets are available. Contact support or try again later.</p>
+        {% endif %}
+        {{ govukSelect({
+          id: "dataset-other", name: "datasetOtherId", value: datasetOtherId,
+          label: { text: "Select a dataset" }, errorMessage: otherError,
+          items: [{ value: "", text: "Select a dataset" }].concat(datasets)
+        }) }}
+      {% endset %}
       <form action="{{ formAction }}" method="post" novalidate>
         <input type="hidden" name="crumb" value="{{ crumb }}">
         {{ govukRadios({
@@ -19,7 +32,7 @@
           errorMessage: datasetError,
           items: [
             { value: "land-model", text: "ATLAS Land Model" },
-            { value: "other", text: "Other", disabled: true, hint: { text: "Not available yet" } }
+            { value: "other", text: "Other", conditional: { html: otherSelect } }
           ]
         }) }}
         {{ govukButton({ text: "Continue" }) }}

@@ -356,7 +356,7 @@ export const config = convict({
       env: 'GEONETWORK_API_URL'
     },
     datasetCategories: {
-      doc: 'Comma-separated catalogue category IDs; match any, or leave empty for all categories',
+      doc: 'Comma-separated catalogue category names; include matches from any, or leave empty for all categories',
       format: Array,
       default: [],
       env: 'GEONETWORK_DATASET_CATEGORIES'

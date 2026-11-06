@@ -9,8 +9,9 @@ function reportAnswers (request) {
     ...(issueType === 'data'
       ? {
           dataset: request.yar.get('dataset'),
-          location: request.yar.get('issueLocation'),
-          attributes: request.yar.get('incorrectAttributes')
+          ...(request.yar.get('dataset') === 'other'
+            ? { datasetOtherId: request.yar.get('datasetOtherId'), datasetOtherTitle: request.yar.get('datasetOtherTitle'), issueWhere: request.yar.get('issueWhere') }
+            : { location: request.yar.get('issueLocation'), attributes: request.yar.get('incorrectAttributes') })
         }
       : {
           technicalArea: request.yar.get('technicalArea'),

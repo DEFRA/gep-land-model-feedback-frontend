@@ -1,3 +1,4 @@
+import { listDatasets } from '#/server/datasets/geonetwork/catalogue.js'
 import { getChangeNavigation, nextPage } from '../navigation.js'
 import Joi from 'joi'
 
@@ -26,14 +27,33 @@ function errors (question, errorList) {
   }
 }
 
-function datasetModel (request, dataset, invalid = false) {
-  const text = 'Select which dataset the issue is within'
+function datasetModel (request, values, datasets, errorField, catalogueError = false) {
+  const text = errorField === 'datasetOtherId' ? 'Select a dataset' : 'Select which dataset the issue is within'
+  const errorList = errorField ? [{ text, href: errorField === 'datasetOtherId' ? '#dataset-other' : '#dataset' }] : []
+  if (catalogueError && values.dataset === 'other') errorList.push({ text: 'Datasets could not be loaded. Try again.', href: '#dataset-other' })
   return {
     ...getChangeNavigation(request, '/report-issue/data', '/'),
-    ...errors(datasetQuestion, invalid ? [{ text, href: '#dataset' }] : []),
-    dataset,
-    datasetError: invalid ? { text } : undefined
+    ...errors(datasetQuestion, errorList),
+    dataset: values.dataset,
+    datasetOtherId: typeof values.datasetOtherId === 'string' ? values.datasetOtherId : '',
+    datasets: datasets.map(({ id, title }) => ({ value: id, text: title })),
+    catalogueError,
+    datasetError: errorField === 'dataset' ? { text } : undefined,
+    otherError: errorField === 'datasetOtherId' ? { text } : undefined
   }
+}
+
+async function datasetPage (request, h, values, errorField, status = 200) {
+  let datasets = []
+  let catalogueError = false
+  try {
+    datasets = await listDatasets()
+  } catch (error) {
+    catalogueError = true
+    request.logger.error({ err: error }, 'Failed to load datasets from GeoNetwork')
+  }
+  return h.view('report-issue/data/index', datasetModel(request, values, datasets, errorField, catalogueError))
+    .code(catalogueError && values.dataset === 'other' ? 503 : status)
 }
 
 function locationModel (request, values = {}, details = []) {
@@ -64,24 +84,44 @@ function guard (request) {
 export const datasetGetController = {
   handler (request, h) {
     if (request.yar.get('issueType') !== 'data') return h.redirect('/').code(303)
-    return h.view('report-issue/data/index', datasetModel(request, request.yar.get('dataset')))
+    return datasetPage(request, h, { dataset: request.yar.get('dataset'), datasetOtherId: request.yar.get('datasetOtherId') })
   }
 }
 
 export const datasetPostController = {
   options: {
     validate: {
-      payload: Joi.object({ dataset: Joi.string().valid('land-model').required() }).options({ stripUnknown: true }),
-      failAction (request, h) {
+      payload: Joi.object({
+        dataset: Joi.string().valid('land-model', 'other').required(),
+        datasetOtherId: Joi.when('dataset', { is: 'other', then: Joi.string().required(), otherwise: Joi.any().strip() })
+      }).options({ stripUnknown: true }),
+      async failAction (request, h, error) {
         if (request.yar.get('issueType') !== 'data') return h.redirect('/').code(303).takeover()
-        return h.view('report-issue/data/index', datasetModel(request, undefined, true)).code(400).takeover()
+        const field = error.details[0].path[0]
+        const response = await datasetPage(request, h, request.payload, field, 400)
+        return response.takeover()
       }
     }
   },
-  handler (request, h) {
+  async handler (request, h) {
     if (request.yar.get('issueType') !== 'data') return h.redirect('/').code(303)
-    request.yar.set('dataset', request.payload.dataset)
-    return h.redirect(nextPage(request, '/report-issue/data/location')).code(303)
+    const { dataset, datasetOtherId } = request.payload
+    let selected
+    if (dataset === 'other') {
+      let datasets
+      try {
+        datasets = await listDatasets()
+      } catch (error) {
+        request.logger.error({ err: error }, 'Failed to validate selected GeoNetwork dataset')
+        return h.view('report-issue/data/index', datasetModel(request, request.payload, [], undefined, true)).code(503)
+      }
+      selected = datasets.find(({ id }) => id === datasetOtherId)
+      if (!selected) return h.view('report-issue/data/index', datasetModel(request, request.payload, datasets, 'datasetOtherId')).code(400)
+    }
+    request.yar.set('dataset', dataset)
+    request.yar.set('datasetOtherId', selected?.id ?? null)
+    request.yar.set('datasetOtherTitle', selected?.title ?? null)
+    return h.redirect(nextPage(request, dataset === 'other' ? '/report-issue/description' : '/report-issue/data/location')).code(303)
   }
 }
 
@@ -144,6 +184,9 @@ export function getAttributesRedirect (request) {
 }
 
 export function getDataDescriptionRedirect (request) {
+  if (request.yar.get('issueType') === 'data' && request.yar.get('dataset') === 'other') {
+    return request.yar.get('datasetOtherId') && request.yar.get('datasetOtherTitle') ? undefined : '/report-issue/data'
+  }
   return getAttributesRedirect(request) || (attributesSchema.validate(request.yar.get('incorrectAttributes')).error
     ? '/report-issue/data/attributes'
     : undefined)

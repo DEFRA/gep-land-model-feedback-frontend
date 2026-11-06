@@ -12,7 +12,10 @@ export const checkAnswersController = {
     if (redirect) return h.redirect(redirect).code(303)
     const dataIssue = request.yar.get('issueType') === 'data'
     const rows = [row('Issue type', dataIssue ? 'Data issue' : 'Technical issue', '/')]
-    if (dataIssue) {
+    if (dataIssue && request.yar.get('dataset') === 'other') {
+      rows.push(row('Dataset', request.yar.get('datasetOtherTitle'), '/report-issue/data'))
+      rows.push(row('Where', request.yar.get('issueWhere'), '/report-issue/description'))
+    } else if (dataIssue) {
       const location = request.yar.get('issueLocation')
       const option = locationOptions.find(({ value }) => value === location.locationType)
       rows.push(row(option.value === 'other' ? 'Location' : 'Location ID', location[option.name], '/report-issue/data/location'))

@@ -1,3 +1,4 @@
+vi.mock('#/server/datasets/geonetwork/catalogue.js', () => ({ listDatasets: vi.fn(async () => []) }))
 import { load } from 'cheerio'
 import { createServer } from '#/server/server.js'
 import { mockAuthCredentials } from '#/server/common/test-helpers/auth.js'
@@ -38,10 +39,10 @@ async function start (selectDataset = true) {
   return visit(selectDataset ? locationPath : datasetPath)
 }
 
-test('enables ATLAS Land Model, keeps Other unavailable and restores the dataset on Back', async () => {
+test('enables ATLAS Land Model, enables Other and restores the dataset on Back', async () => {
   const $ = load((await start(false)).payload)
   expect($('#dataset').is(':disabled')).toBe(false)
-  expect($('#dataset-2').is(':disabled')).toBe(true)
+  expect($('#dataset-2').is(':disabled')).toBe(false)
   expect($('button').is(':disabled')).toBe(false)
   const next = await submit(datasetPath, { dataset: 'land-model' })
   expect(next.statusCode).toBe(303)
@@ -49,7 +50,7 @@ test('enables ATLAS Land Model, keeps Other unavailable and restores the dataset
   expect(load((await visit(datasetPath)).payload)('#dataset').is(':checked')).toBe(true)
 })
 
-test.each([{}, { dataset: 'other' }, { dataset: ['land-model', 'other'] }])('rejects missing or unsupported dataset: %j', async fields => {
+test.each([{}, { dataset: 'invalid' }, { dataset: ['land-model', 'other'] }])('rejects missing or unsupported dataset: %j', async fields => {
   await start(false)
   const response = await submit(datasetPath, fields)
   expect(response.statusCode).toBe(400)

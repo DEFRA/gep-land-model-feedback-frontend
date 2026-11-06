@@ -220,9 +220,16 @@ The branches use the questions and option labels based on the
   ATLAS data export, or Other.
 
 The Data issue page at `/report-issue/data` now accepts ATLAS Land Model and
-continues to `/report-issue/data/location`. The dataset Other option remains
-disabled; its future dropdown will use `listDatasets()` and the configured
-`GEONETWORK_DATASET_CATEGORIES` filter.
+continues to `/report-issue/data/location`. The Other option reveals a GOV.UK Select populated by `listDatasets()` using the
+configured `GEONETWORK_DATASET_CATEGORIES` inclusion filter. Continue verifies the
+selected ID against the current filtered catalogue and saves its server-supplied
+name. Other datasets go directly to the shared description page, with the
+prototype's **Where is the issue?** input; land-model location and attributes are
+skipped. The chosen dataset and location are included on Check your answers and
+in the session receipt. Changing back to Land Model clears the Other selection.
+An empty catalogue is explained in the conditional panel. Catalogue failures show
+a retry message and block Other submissions with HTTP 503; Land Model remains
+available.
 
 **Enter the location of the issue** uses GOV.UK conditional radios for Grid cell,
 Feature and Other, with the prototype's labels, hints and error messages. Continue
@@ -329,75 +336,69 @@ selections.
 
 ## GeoNetwork dataset catalogue
 
-The helpers in `src/server/datasets/geonetwork/` reuse the viewer's field mapping,
-accessors and test fixture from commit `ac0c7b3441299715149d174e8a8ef21aec9fa349`.
-They call the same `POST /search/records/_search` GeoNetwork endpoint. Requests use
-Node 24's native fetch, a 10-second timeout, and the shared external-call logging
-helper. No additional npm package or public route is needed.
-
-Set these variables in `.env` locally or through deployment configuration:
+`src/server/datasets/geonetwork/catalogue.js` calls the same
+`POST /search/records/_search` endpoint and title field as the
+[land model viewer](https://github.com/DEFRA/gep-land-model-viewer-frontend).
+It now requests only `resourceTitleObject.default` and returns `{ id, title }`.
+Detailed metadata accessors, resolution mapping and record-detail queries have
+been removed because the dropdown does not use them.
 
 ```dotenv
 GEONETWORK_API_URL=http://localhost:8080/geonetwork/srv/api
-GEONETWORK_DATASET_CATEGORIES=landModelGrids,landModelParcels
+GEONETWORK_DATASET_CATEGORIES=feedback-test
 ```
 
-Categories are exact, case-sensitive **catalogue category IDs** (`cat.keyword`),
-not ISO topic categories (`cl_topic`) or INSPIRE themes. Matching any configured
-category includes the dataset. Comma-separated entries are trimmed, blank entries
-ignored and duplicates removed. Leave the category variable unset or empty for
-all catalogue categories. Metadata templates are always excluded. The viewer's
-hard-coded excluded categories are deliberately not carried over: this application
-can explicitly include reference datasets or land models when required.
+Categories are exact, case-sensitive **catalogue category names** (`cat.keyword`),
+not ISO topic categories or INSPIRE themes. This is an inclusion filter: matching
+any listed category includes a record. Comma-separated entries are trimmed and
+deduplicated; empty means all categories. Metadata templates are always excluded.
+There are no viewer-style category exclusions. Requests use native fetch, a
+10-second timeout and the shared external-call logger. All result pages are read;
+failed, malformed or incomplete results reject rather than presenting a partial
+list. The form rechecks membership on submission and never trusts a posted name.
 
-```javascript
-import {
-  listDatasets,
-  queryDatasets,
-  getDatasetMetadata
-} from '#/server/datasets/geonetwork/catalogue.js'
+### Local GeoNetwork and sample data
 
-// All matching datasets, suitable for a future selector.
-const datasets = await listDatasets()
-const items = datasets.map(({ id, title }) => ({ value: id, text: title || id }))
+The viewer uses the shared custom GeoNetwork in
+[DEFRA-GEP-metadata-management](https://dev.azure.com/defragovuk/DEFRA-GEP/_git/DEFRA-GEP-metadata-management).
+You can continue using that catalogue and its import instructions. For a standalone
+local dropdown test without access to that repository, this application also
+provides [compose.geonetwork.yml](./compose.geonetwork.yml), based on the
+[official GeoNetwork Docker setup](https://github.com/geonetwork/docker-geonetwork/tree/main/4.4.12).
+It runs GeoNetwork 4.4.12, PostGIS and Elasticsearch 8.19.13. It does not include the
+shared repository's custom plugins, which are not required for the title selector.
 
-// Optional title/abstract search, returning one page and its total.
-const { results, total } = await queryDatasets('soil', { from: 0 })
+With Docker running and Node 24 selected:
 
-// Optional detail lookup; returns null for missing or filtered-out records.
-const metadata = datasets.length ? await getDatasetMetadata(datasets[0].id) : null
+```bash
+npm run geonetwork:up
+npm run geonetwork:seed
 ```
 
-Summaries contain `{ id, title, inspireTheme }`. An empty query lists results by
-title; text search sorts by relevance, matching the viewer. The category filter
-applies to every page and to detail lookups. `listDatasets` retrieves pages of up
-to 500 records until the full result total is reached. Catalogue-side search-window
-limits, HTTP/network errors, timeouts, invalid responses and incomplete/overlapping
-pages reject the call rather than silently producing a partial dropdown. Callers
-should handle these errors when the selection feature is implemented.
+Startup can take a few minutes on first use. Only the GeoNetwork UI/API is exposed,
+bound to loopback: [http://localhost:8080/geonetwork](http://localhost:8080/geonetwork).
+The local test administrator is `admin` / `admin`. The importer is deliberately
+fixed to that loopback URL and those development credentials; it cannot target a
+remote catalogue. It imports three synthetic ISO 19139 records with fixed UUIDs,
+publishes them, and verifies anonymous category-filtered search. Re-running it
+overwrites only those test UUIDs, retaining other catalogue content.
 
-### Local GeoNetwork and test data
+- `feedback-test`: ATLAS test flood risk areas, ATLAS test woodland.
+- `feedback-excluded`: ATLAS test excluded dataset.
 
-If developing GeoNetwork functionality you will need GeoNetwork running, a dockerised version with the custom plugins is available
-in [DEFRA-GEP-metadata-management](https://dev.azure.com/defragovuk/DEFRA-GEP/_git/DEFRA-GEP-metadata-management) for use with
-this project, the `gep-find-geo-data-frontend` and the `gep-land-model-viewer-frontend`.
-
-Start the shared GeoNetwork from `DEFRA-GEP-metadata-management` and import its test data separately (see its README.md).
-This follows the same Docker setup as the two frontend repositories. Access to the
-Azure DevOps repository is required. Use its README for the Docker Compose commands,
-custom plugins and test-data import, rather than a second GeoNetwork stack in this
-repository. The catalogue helpers read metadata from
-`http://localhost:8080/geonetwork/srv/api` by default.
-
-After importing test data, verify the configured category filter from this repository:
+Set the two GeoNetwork variables above in `.env`, restart `npm run dev`, choose
+**Data issue → Other**, and check that only the two `feedback-test` datasets appear.
+Set `GEONETWORK_DATASET_CATEGORIES=feedback-excluded` to see the third, or leave it
+empty to see all three. You can verify the API independently:
 
 ```bash
 node --env-file-if-exists=.env --input-type=module -e 'const { listDatasets } = await import("./src/server/datasets/geonetwork/catalogue.js"); console.table(await listDatasets())'
 ```
 
-Set `GEONETWORK_DATASET_CATEGORIES` to the category IDs assigned to your test records
-to check that only matching datasets are returned. Leave it empty to list all
-non-template records. The Other dataset dropdown itself is not implemented yet.
+Stop the optional catalogue with `npm run geonetwork:down`. Named volumes retain
+records and the index between starts. The existing authentication/session Compose
+services are separate and remain unchanged. Port 8080 must be available; stop an
+already running shared GeoNetwork before starting this optional stack.
 
 ## Authentication
 

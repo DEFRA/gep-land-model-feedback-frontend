@@ -19,10 +19,13 @@ function pageModel (request, description, error) {
   return {
     pageTitle: `${error ? 'Error: ' : ''}${question}`,
     question,
-    ...getChangeNavigation(request, '/report-issue/description', request.yar.get('issueType') === 'data' ? '/report-issue/data/attributes' : '/report-issue/technical'),
+    ...getChangeNavigation(request, '/report-issue/description', request.yar.get('issueType') === 'data' ? (request.yar.get('dataset') === 'other' ? '/report-issue/data' : '/report-issue/data/attributes') : '/report-issue/technical'),
+    isOtherDataset: request.yar.get('issueType') === 'data' && request.yar.get('dataset') === 'other',
+    issueWhere: request.method === 'post' ? (typeof request.payload?.issueWhere === 'string' ? request.payload.issueWhere : '') : request.yar.get('issueWhere'),
+    whereError: error?.details.some(({ path }) => path[0] === 'issueWhere') ? { text: 'Enter the location of the issue' } : undefined,
     issueDescription: typeof description === 'string' ? description : '',
-    descriptionError: error ? { text: message } : undefined,
-    errorSummary: error ? { titleText: 'There is a problem', errorList: [{ text: message, href: '#issue-description' }] } : undefined
+    descriptionError: error?.details.some(({ path }) => path[0] === 'issueDescription') ? { text: message } : undefined,
+    errorSummary: error ? { titleText: 'There is a problem', errorList: error.details.map(({ path }) => path[0] === 'issueWhere' ? { text: 'Enter the location of the issue', href: '#issue-where' } : { text: message, href: '#issue-description' }) } : undefined
   }
 }
 
@@ -35,20 +38,19 @@ export const descriptionController = {
 }
 
 export const descriptionPostController = {
-  options: {
-    validate: {
-      payload: Joi.object({ issueDescription: descriptionSchema }).options({ stripUnknown: true }),
-      failAction (request, h, error) {
-        const redirect = getDescriptionRedirect(request)
-        if (redirect) return h.redirect(redirect).code(303).takeover()
-        return h.view('report-issue/description', pageModel(request, request.payload.issueDescription, error)).code(400).takeover()
-      }
-    }
-  },
   handler (request, h) {
     const redirect = getDescriptionRedirect(request)
     if (redirect) return h.redirect(redirect).code(303)
-    request.yar.set('issueDescription', request.payload.issueDescription)
+    const other = request.yar.get('issueType') === 'data' && request.yar.get('dataset') === 'other'
+    const { value, error } = Joi.object({
+      issueWhere: other ? Joi.string().trim().required() : Joi.any().strip(),
+      issueDescription: descriptionSchema
+    }).required().validate(request.payload, { stripUnknown: true, abortEarly: false })
+    if (error) {
+      return h.view('report-issue/description', pageModel(request, request.payload?.issueDescription, error)).code(400)
+    }
+    request.yar.set('issueWhere', other ? value.issueWhere : null)
+    request.yar.set('issueDescription', value.issueDescription)
     return h.redirect(nextPage(request, '/report-issue/evidence')).code(303)
   }
 }

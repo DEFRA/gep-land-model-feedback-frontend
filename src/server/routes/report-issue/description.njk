@@ -2,6 +2,7 @@
 
 {% from "govuk/components/back-link/macro.njk" import govukBackLink %}
 {% from "govuk/components/character-count/macro.njk" import govukCharacterCount %}
+{% from "govuk/components/input/macro.njk" import govukInput %}
 {% from "govuk/components/button/macro.njk" import govukButton %}
 {% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
 
@@ -15,6 +16,12 @@
       {% if errorSummary %}{{ govukErrorSummary(errorSummary) }}{% endif %}
       <form action="{{ formAction }}" method="post" novalidate>
         <input type="hidden" name="crumb" value="{{ crumb }}">
+        {% if isOtherDataset %}
+          <h1 class="govuk-heading-l">{{ question }}</h1>
+          {{ govukInput({ id: "issue-where", name: "issueWhere", value: issueWhere,
+            label: { text: "Where is the issue?" },
+            hint: { text: "Describe where the issue is, using specific identifiers where possible" }, errorMessage: whereError }) }}
+        {% endif %}
         {{ govukCharacterCount({
           name: "issueDescription",
           id: "issue-description",
@@ -22,7 +29,7 @@
           rows: 5,
           value: issueDescription,
           errorMessage: descriptionError,
-          label: { text: question, isPageHeading: true, classes: "govuk-label--l" },
+          label: { text: "What is the issue?" if isOtherDataset else question, isPageHeading: not isOtherDataset, classes: "" if isOtherDataset else "govuk-label--l" },
           hint: { text: "Enter as much information as possible to help us triage the issue. You will be able to attach files on the following page" }
         }) }}
         {{ govukButton({ text: "Continue" }) }}

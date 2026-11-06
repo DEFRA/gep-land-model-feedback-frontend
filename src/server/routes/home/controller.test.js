@@ -1,3 +1,4 @@
+vi.mock('#/server/datasets/geonetwork/catalogue.js', () => ({ listDatasets: vi.fn(async () => []) }))
 import { load } from 'cheerio'
 import { mockAuthCredentials } from '#/server/common/test-helpers/auth.js'
 import { createServer } from '#/server/server.js'
@@ -79,7 +80,7 @@ test.each([
   expect($('.govuk-back-link').attr('href')).toBe('/')
   expect($('.govuk-radios__label').map((_, element) => $(element).text().trim()).get()).toEqual(labels)
   if (issueType === 'data') {
-    expect($('input[type="radio"]:enabled')).toHaveLength(1)
+    expect($('input[type="radio"]:enabled')).toHaveLength(2)
     expect($('form .govuk-button').attr('disabled')).toBeUndefined()
   } else {
     expect($('input[type="radio"]:enabled')).toHaveLength(6)

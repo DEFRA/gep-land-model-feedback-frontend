@@ -5,11 +5,11 @@ afterEach(() => {
   vi.resetModules()
 })
 
-test('does not invent a support email address when the variable is unset', async () => {
+test('uses the configured default support address when the variable is unset', async () => {
   vi.stubEnv('SUPPORT_MAILBOX_ADDRESS', undefined)
   vi.resetModules()
   const { config } = await import('./config.js')
-  expect(config.get('supportMailboxAddress')).toBeNull()
+  expect(config.get('supportMailboxAddress')).toBe('example@example.com')
 })
 
 test('reads the support mailbox from the environment', async () => {
