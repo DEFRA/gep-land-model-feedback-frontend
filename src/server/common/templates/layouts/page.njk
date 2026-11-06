@@ -73,6 +73,12 @@
   {% endif %}
 {% endblock %}
 
+{% block container %}
+  <div class="app-page-content">
+    {{ super() }}
+  </div>
+{% endblock %}
+
 {% block content %}{% endblock %}
 
 {% block footer %}

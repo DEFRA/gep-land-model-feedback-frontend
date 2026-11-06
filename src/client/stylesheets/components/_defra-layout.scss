@@ -1,5 +1,16 @@
 @use '../variables/colours' as *;
 
+.govuk-template__body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+// Keep the GOV.UK width container inside a full-width flex item.
+.app-page-content {
+  flex: 1 0 auto;
+}
+
 .defra-width-container {
   max-width: 960px;
   margin: 0 auto;
