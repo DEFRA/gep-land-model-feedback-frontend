@@ -60,13 +60,14 @@ test('renders a direct multipart form without exposing the application CSRF toke
   expect(initiateUpload).toHaveBeenCalledOnce()
 })
 
-test('pending scans show an automatically refreshing GOV.UK page and block review and Submit', async () => {
+test('pending scans show a GOV.UK page with a user-controlled status check and block review and Submit', async () => {
   await start()
   getUploadStatus.mockResolvedValue({ uploadStatus: 'pending' })
   const waiting = await complete()
   expect(waiting.statusCode).toBe(200)
   expect(load(waiting.payload)('h1').text()).toBe('Checking your files')
-  expect(load(waiting.payload)('meta[http-equiv="refresh"]').attr('content')).toContain('2;url=')
+  expect(load(waiting.payload)('meta[http-equiv="refresh"]').length).toBe(0)
+  expect(load(waiting.payload)('a.govuk-button').attr('href')).toBe(`${path}/complete?uploadId=${id}`)
   for (const response of [await visit(path), await visit(review), await post(review)]) {
     expect(response.statusCode).toBe(303)
     expect(response.headers.location).toBe(`${path}/complete?uploadId=${id}`)

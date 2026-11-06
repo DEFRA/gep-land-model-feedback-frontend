@@ -102,7 +102,7 @@ describe('#updateUserSession', () => {
       expiresAt: expect.any(String)
     })
     expect(request.logger.info).toHaveBeenCalledWith(
-      'User session refreshed, UserId: user-id, displayName: User Name'
+      'User session refreshed'
     )
   })
 

@@ -52,9 +52,7 @@ describe('#loggerOptions', () => {
 
       expect(loggerOptions.serializers.req(req)).toEqual({
         method: 'GET',
-        url: '/map',
-        query: { f: 'json' },
-        headers: { host: 'localhost' }
+        path: '/map'
       })
       expect(loggerOptions.serializers.req({ response: { statusCode: 200 } })).toBeUndefined()
       expect(loggerOptions.serializers.req({})).toBeUndefined()
@@ -68,10 +66,9 @@ describe('#loggerOptions', () => {
       }
 
       expect(loggerOptions.serializers.res(res)).toEqual({
-        statusCode: 503,
-        headers: { 'content-type': 'text/html' }
+        statusCode: 503
       })
-      expect(loggerOptions.serializers.res({ statusCode: 500 })).toEqual({ statusCode: 500, headers: undefined })
+      expect(loggerOptions.serializers.res({ statusCode: 500 })).toEqual({ statusCode: 500 })
       expect(loggerOptions.serializers.res({ statusCode: 200 })).toBeUndefined()
     })
 

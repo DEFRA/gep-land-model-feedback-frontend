@@ -4,11 +4,11 @@ import { config } from '../../config/config.js'
 const logoutController = {
   handler: async (request, h) => {
     const userSession = request.auth.credentials
+    await clearUserSession(request)
+    request.yar.reset()
     if (!userSession) {
       return h.redirect('/')
     }
-
-    await clearUserSession(request)
 
     try {
       const oidcConfig = await request.server.oidc.getConfig()

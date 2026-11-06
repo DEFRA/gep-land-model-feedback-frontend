@@ -11,8 +11,7 @@ const contentSecurityPolicy = {
     defaultSrc: ['self'],
     connectSrc: [
       'self',
-      'wss',
-      'data:',
+      ...(config.get('isDevelopment') ? ['ws:', 'wss:'] : []),
       'https://www.google.com',
       'https://*.google-analytics.com',
       'https://*.analytics.google.com',

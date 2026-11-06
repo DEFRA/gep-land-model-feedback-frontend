@@ -9,9 +9,9 @@ async function datasetPage (request, h, values, errorField, status = statusCodes
   let catalogueError = false
   try {
     datasets = await listDatasets()
-  } catch (error) {
+  } catch {
     catalogueError = true
-    request.logger.error({ err: error }, 'Failed to load datasets from GeoNetwork')
+    request.logger.error('Failed to load datasets from GeoNetwork')
   }
   return h.view('report-issue/data/index', buildDatasetViewModel(request, values, datasets, errorField, catalogueError))
     .code(catalogueError && values.dataset === 'other' ? statusCodes.serviceUnavailable : status)
@@ -44,8 +44,8 @@ export const datasetPostController = {
       let datasets
       try {
         datasets = await listDatasets()
-      } catch (error) {
-        request.logger.error({ err: error }, 'Failed to validate selected GeoNetwork dataset')
+      } catch {
+        request.logger.error('Failed to validate selected GeoNetwork dataset')
         return h.view('report-issue/data/index', buildDatasetViewModel(request, request.payload, [], undefined, true)).code(statusCodes.serviceUnavailable)
       }
       selected = datasets.find(({ id }) => id === datasetOtherId)

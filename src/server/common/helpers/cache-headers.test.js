@@ -28,7 +28,7 @@ describe('#cacheHeaders', () => {
   test('Should set no-store cache-control on error responses', async () => {
     const { headers, statusCode } = await server.inject({
       method: 'GET',
-      url: '/this-page-does-not-exist'
+      url: '/publicity'
     })
 
     expect(statusCode).toBe(statusCodes.notFound)

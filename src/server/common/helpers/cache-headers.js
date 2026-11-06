@@ -7,7 +7,7 @@ const NO_STORE = 'no-store, no-cache, must-revalidate'
 export function setCacheHeaders (request, h) {
   const { response } = request
 
-  if (request.path.startsWith(assetPath) || request.path === '/favicon.ico') {
+  if (request.path === assetPath || request.path.startsWith(`${assetPath}/`) || request.path === '/favicon.ico') {
     return h.continue
   }
 

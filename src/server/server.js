@@ -27,8 +27,10 @@ import { cognitoClientAssertion } from './common/helpers/auth/client-assertion/c
 import { mockClientAssertion } from './common/helpers/auth/client-assertion/mock.js'
 import { sessionStrategy } from './common/helpers/auth/session-strategy.js'
 import { setCacheHeaders } from './common/helpers/cache-headers.js'
+import { validateProductionConfig } from './common/helpers/validate-production-config.js'
 
 export async function createServer () {
+  validateProductionConfig(config)
   const localAuthBypassHost = getLocalAuthBypassHost()
   const server = hapi.server({
     host: localAuthBypassHost ?? config.get('host'),

@@ -123,9 +123,7 @@ async function updateUserSession (request, refreshTokenResponse, previousSession
   const sessionId = request.state?.[sessionCookieName]?.sessionId
   await request.server.session.set(sessionId, session)
 
-  request.logger.info(
-    `User session refreshed, UserId: ${session.id}, displayName: ${session.displayName}`
-  )
+  request.logger.info('User session refreshed')
 
   return session
 }
@@ -141,9 +139,7 @@ async function refreshTokenIfExpired (refreshToken, request, userSession) {
     return undefined
   }
 
-  request.logger.info(
-    `Token for user ${userSession.displayName} has expired, attempting to refresh`
-  )
+  request.logger.info('Access token has expired, attempting to refresh')
 
   try {
     const refreshTokenResponse = await refreshToken(userSession.refreshToken)

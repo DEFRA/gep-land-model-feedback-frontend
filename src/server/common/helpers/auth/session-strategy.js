@@ -16,6 +16,8 @@ const sessionStrategy = {
           path: '/',
           password: sessionCookieConfig.password,
           isSecure: sessionCookieConfig.secure,
+          isHttpOnly: true,
+          isSameSite: 'Strict',
           ttl: sessionCookieConfig.ttl,
           clearInvalid: true
         },

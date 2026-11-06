@@ -14,9 +14,21 @@ Set `AUTH_REQUIRED=false` to bypass authentication for loopback local developmen
 This setting cannot disable authentication in deployed environments. Keep
 `APP_BASE_URL=http://localhost:3004` for the local redirects and cookie settings.
 
-For CDP deployments, configure `COGNITO_ENABLED`, OIDC credentials, the discovery
-URL, client assertions and secure session cookies through the deployment
-configuration. See `src/config/config.js` for the full schema.
+For CDP deployments, configure the following through deployment configuration:
+
+- `SESSION_COOKIE_PASSWORD`: a unique, randomly generated secret of at least
+  32 characters, held in the deployment secret store. The public development
+  default is rejected in production.
+- `SESSION_COOKIE_SECURE=true`.
+- `COGNITO_ENABLED=true` and `COGNITO_IDENTITY_POOL_ID` for client assertions.
+- `APP_BASE_URL` and `OIDC_WELL_KNOWN_CONFIGURATION_URL`: trusted HTTPS URLs
+  without embedded credentials or fragments, plus the deployed OIDC client ID.
+
+Production startup rejects unsafe values for these settings. Local Keycloak and
+`AUTH_REQUIRED=false` remain available in development. A fresh sign-in and sign-out
+clear the previous workflow's answers, uploaded-file references and receipt.
+See `src/config/config.js` for the full schema and [the security review](security-review.md)
+for verification scope and deployment checks.
 
 ## Dataset catalogue
 
