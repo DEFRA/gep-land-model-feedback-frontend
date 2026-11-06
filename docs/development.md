@@ -84,7 +84,9 @@ mean that later body parsing or business validation succeeded.
 Set `LOG_LEVEL=debug` to also see call-start and completion/failure events.
 The configured Pino logger supplies the existing trace context. Logs exclude
 request/response bodies, URLs, headers, credentials, tokens and raw SDK error
-objects. Authentication error handlers use fixed messages for the same reason.
+objects. Cognito token failures additionally log an `awsError` object containing
+the exception name, message, code, HTTP status and AWS request ID when available.
+Other authentication error handlers use fixed messages.
 `LOG_ENABLED=false` disables logging. Restart the app after changing these values.
 
 When adding a new external API operation, wrap the actual asynchronous call with

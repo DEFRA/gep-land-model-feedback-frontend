@@ -24,6 +24,11 @@ For CDP deployments, configure the following through deployment configuration:
 - `APP_BASE_URL` and `OIDC_WELL_KNOWN_CONFIGURATION_URL`: trusted HTTPS URLs
   without embedded credentials or fragments, plus the deployed OIDC client ID.
 
+`HTTP_PROXY` enables the same `setupProxy()` implementation used by the Land Model
+Viewer. Startup configures both the Undici dispatcher and `global-agent` before
+creating the server or making authentication requests. The current CDP frontend
+template no longer includes this helper; the viewer implementation is copied unchanged.
+
 Production startup rejects unsafe values for these settings. Local Keycloak and
 `AUTH_REQUIRED=false` remain available in development. A fresh sign-in and sign-out
 clear the previous workflow's answers, uploaded-file references and receipt.

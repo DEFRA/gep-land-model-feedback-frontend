@@ -1,4 +1,5 @@
 import jwt from '@hapi/jwt'
+import { createLogger } from '../../logging/logger.js'
 import {
   tokenHasExpired,
   CognitoFederatedCredentialProvider,
@@ -61,9 +62,31 @@ describe('#CognitoFederatedCredentialProvider', () => {
   })
 
   test('requestCognitoToken throws on failure', async () => {
-    mockSend.mockRejectedValue(new Error('AWS error'))
+    const error = Object.assign(new Error('Not authorized for this identity pool'), {
+      name: 'NotAuthorizedException',
+      code: 'AccessDenied',
+      $metadata: { httpStatusCode: 400, requestId: 'aws-request-id' },
+      config: { headers: { authorization: 'private-token' } },
+      Token: 'private-token'
+    })
+    mockSend.mockRejectedValue(error)
+    const logError = vi.spyOn(createLogger(), 'error').mockImplementation(() => {})
 
-    await expect(provider.requestCognitoToken()).rejects.toThrow('AWS error')
+    try {
+      await expect(provider.requestCognitoToken()).rejects.toBe(error)
+      expect(logError).toHaveBeenCalledExactlyOnceWith({
+        awsError: {
+          name: 'NotAuthorizedException',
+          message: 'Not authorized for this identity pool',
+          code: 'AccessDenied',
+          statusCode: 400,
+          requestId: 'aws-request-id'
+        }
+      }, 'Failed to get Cognito Token')
+      expect(JSON.stringify(logError.mock.calls)).not.toContain('private-token')
+    } finally {
+      logError.mockRestore()
+    }
   })
 
   test('getToken fetches on first call', async () => {

@@ -9,11 +9,14 @@ describe('#startServer', () => {
   let hapiServerSpy
   let startServerImport
   let createServerImport
+  let setupProxySpy
 
   beforeAll(async () => {
     vi.stubEnv('PORT', '3097')
 
     createServerImport = await import('../../server.js')
+    const proxy = await import('./proxy/setup-proxy.js')
+    setupProxySpy = vi.spyOn(proxy, 'setupProxy')
     startServerImport = await import('./start-server.js')
 
     createServerSpy = vi.spyOn(createServerImport, 'createServer')
@@ -36,6 +39,8 @@ describe('#startServer', () => {
 
       expect(createServerSpy).toHaveBeenCalled()
       expect(hapiServerSpy).toHaveBeenCalled()
+      expect(setupProxySpy).toHaveBeenCalledOnce()
+      expect(setupProxySpy.mock.invocationCallOrder[0]).toBeLessThan(hapiServerSpy.mock.invocationCallOrder[0])
 
       const { result, statusCode } = await server.inject({
         auth: mockAuthCredentials,
