@@ -16,8 +16,13 @@ const fileId = '22222222-2222-4222-8222-222222222222'
 const secondId = '33333333-3333-4333-8333-333333333333'
 const clean = (fileIdValue = fileId, filename = 'evidence.txt') => ({ fileId: fileIdValue, filename, fileStatus: 'complete', contentLength: 20, s3Bucket: config.get('uploader.bucket'), s3Key: `evidence/${id}/${fileIdValue}`, contentType: 'text/plain' })
 const ready = files => ({ uploadStatus: 'ready', form: files === undefined ? {} : { evidenceFiles: files }, numberOfRejectedFiles: (Array.isArray(files) ? files : [files]).filter(file => file?.hasError || file?.fileStatus === 'rejected').length })
+const originalRestrictions = { size: config.get('uploader.maxFileSizeMB'), types: config.get('uploader.allowedMimeTypes') }
 beforeAll(async () => { server = await createServer(); await server.initialize() })
 afterAll(async () => server.stop({ timeout: 0 }))
+afterEach(() => {
+  config.set('uploader.maxFileSizeMB', originalRestrictions.size)
+  config.set('uploader.allowedMimeTypes', originalRestrictions.types)
+})
 beforeEach(() => {
   cookies = new Map()
   initiateUpload.mockReset().mockResolvedValue(id)
@@ -71,6 +76,34 @@ test('pending scans show an automatically refreshing GOV.UK page and block revie
     expect(response.statusCode).toBe(303)
     expect(response.headers.location).toBe(`${path}/complete?uploadId=${id}`)
   }
+})
+
+test('shows configured restrictions and applies MIME types to the GOV.UK file upload', async () => {
+  config.set('uploader.maxFileSizeMB', 2.5)
+  config.set('uploader.allowedMimeTypes', ['application/pdf', 'image/png'])
+  const $ = load((await start()).payload)
+  expect($('#evidence-files').attr('accept')).toBe('application/pdf, image/png')
+  expect($('#evidence-files-hint').text()).toContain('2.5 MB or smaller')
+  expect($('#evidence-files-hint').text()).toContain('Allowed file types: application/pdf, image/png')
+})
+
+test('does not restrict the file picker when the MIME allowlist is empty', async () => {
+  const $ = load((await start()).payload)
+  expect($('#evidence-files').attr('accept')).toBeUndefined()
+  expect($('#evidence-files-hint').text()).not.toContain('Allowed file types:')
+})
+
+test.each(['The selected file is too large', 'The selected file type is not supported'])('displays uploader restriction errors: %s', async errorMessage => {
+  await start()
+  getUploadStatus.mockResolvedValue(ready({ filename: 'evidence.bin', fileStatus: 'rejected', hasError: true, errorMessage }))
+  await complete()
+  getUploadStatus.mockResolvedValue({ uploadStatus: 'initiated' })
+  const response = await visit(path)
+  const $ = load(response.payload)
+  expect(response.statusCode).toBe(400)
+  expect($('.govuk-error-summary__list a').text()).toBe(`evidence.bin: ${errorMessage}`)
+  expect($('#evidence-files-error').text()).toContain(errorMessage)
+  expect(response.request.yar.get('evidenceFiles')).toEqual([])
 })
 
 test('accepts multiple clean files, preserves their private S3 references and displays their names in the review and receipt', async () => {

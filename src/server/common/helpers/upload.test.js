@@ -3,7 +3,7 @@ import { initiateUpload, getUploadStatus, uploadUrl } from './upload.js'
 
 const id = '11111111-1111-4111-8111-111111111111'
 const request = vi.fn()
-const originals = { api: config.get('uploader.apiUrl'), public: config.get('uploader.publicUrl') }
+const originals = { api: config.get('uploader.apiUrl'), public: config.get('uploader.publicUrl'), size: config.get('uploader.maxFileSizeMB'), types: config.get('uploader.allowedMimeTypes') }
 beforeEach(() => {
   request.mockReset()
   vi.stubGlobal('fetch', request)
@@ -12,6 +12,8 @@ afterEach(() => {
   vi.unstubAllGlobals()
   config.set('uploader.apiUrl', originals.api)
   config.set('uploader.publicUrl', originals.public)
+  config.set('uploader.maxFileSizeMB', originals.size)
+  config.set('uploader.allowedMimeTypes', originals.types)
 })
 const success = json => ({ ok: true, status: 200, json: async () => json })
 
@@ -27,6 +29,13 @@ test('initiates with a return route, bucket, size limit and session correlation 
 test.each([undefined, 'not-a-uuid'])('rejects invalid initiation IDs: %j', async uploadId => {
   request.mockResolvedValue(success({ uploadId }))
   await expect(initiateUpload('/complete', 'token')).rejects.toThrow('Invalid')
+})
+test('sends the MIME allowlist and converts a fractional megabyte limit to bytes', async () => {
+  config.set('uploader.maxFileSizeMB', 2.51)
+  config.set('uploader.allowedMimeTypes', ['application/pdf', 'image/jpeg'])
+  request.mockResolvedValue(success({ uploadId: id }))
+  await initiateUpload('/complete', 'token')
+  expect(JSON.parse(request.mock.calls[0][1].body)).toMatchObject({ maxFileSize: 2510000, mimeTypes: ['application/pdf', 'image/jpeg'] })
 })
 test('constructs browser form URLs from configured origin or same-origin CDP path', () => {
   config.set('uploader.publicUrl', 'http://localhost:7337/')

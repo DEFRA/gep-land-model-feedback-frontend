@@ -93,7 +93,7 @@ test.each(['data', 'technical'])('%s review matches prototype rows with accessib
 })
 
 test.each([
-  ['feature', 'featureReference', 'feature-id', 'Location ID'],
+  ['feature', 'featureReference', '1e2f9011-ece7-4068-80ec-27e837259cf8', 'Location ID'],
   ['other', 'locationDescription', 'Near the village centre', 'Location']
 ])('shows the saved %s location', async (locationType, name, value, label) => {
   const response = await start('data', { locationType, [name]: value })
@@ -119,7 +119,7 @@ const changes = [
   ['data', '/', { issueType: 'data' }, 'Issue type', 'Data issue'],
   ['data', '/report-issue/data', { dataset: 'land-model' }, 'Issue type', 'Data issue'],
   ['data', '/report-issue/data/location', { locationType: 'other', locationDescription: 'Another location' }, 'Location', 'Another location'],
-  ['data', '/report-issue/data/attributes', { attributes: 'hydrology' }, 'Incorrect attributes', 'Hydrology'],
+  ['data', '/report-issue/data/attributes', { attributes: 'land-management' }, 'Incorrect attributes', 'Land management'],
   ['data', '/report-issue/description', { issueDescription: 'Updated data description' }, 'Description', 'Updated data description'],
   ['technical', '/report-issue/technical', { technicalArea: 'data-search' }, 'Relates to', 'ATLAS Data Search &amp; Find'],
   ['technical', '/report-issue/description', { issueDescription: 'Updated technical description' }, 'Description', 'Updated technical description']

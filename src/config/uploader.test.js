@@ -3,10 +3,11 @@ test('reads internal/public uploader endpoints, bucket and size limit from the e
   vi.stubEnv('CDP_UPLOADER_URL', 'http://uploader.internal')
   vi.stubEnv('CDP_UPLOADER_PUBLIC_URL', 'https://uploads.example.com')
   vi.stubEnv('EVIDENCE_S3_BUCKET', 'service-evidence')
-  vi.stubEnv('EVIDENCE_MAX_FILE_SIZE', '5000000')
+  vi.stubEnv('EVIDENCE_MAX_FILE_SIZE_MB', '2.51')
+  vi.stubEnv('EVIDENCE_ALLOWED_MIME_TYPES', 'application/pdf, IMAGE/JPEG ,image/png')
   vi.resetModules()
   const { config } = await import('./config.js')
-  expect(config.get('uploader')).toEqual({ apiUrl: 'http://uploader.internal', publicUrl: 'https://uploads.example.com', bucket: 'service-evidence', maxFileSize: 5000000 })
+  expect(config.get('uploader')).toEqual({ apiUrl: 'http://uploader.internal', publicUrl: 'https://uploads.example.com', bucket: 'service-evidence', maxFileSizeMB: 2.51, allowedMimeTypes: ['application/pdf', 'image/jpeg', 'image/png'] })
 })
 test('production uses a same-origin public upload route by default', async () => {
   vi.stubEnv('NODE_ENV', 'production')
@@ -20,8 +21,20 @@ test.each(['javascript:alert(1)', 'https://uploads.example.com/path', 'https://u
   vi.resetModules()
   await expect(import('./config.js')).rejects.toThrow()
 })
-test.each(['0', '-1', '1.5'])('rejects invalid file-size limits: %s', async value => {
-  vi.stubEnv('EVIDENCE_MAX_FILE_SIZE', value)
+test.each(['0', '-1', 'NaN', 'Infinity', '0.0000001', '100000000000'])('rejects invalid file-size limits: %s', async value => {
+  vi.stubEnv('EVIDENCE_MAX_FILE_SIZE_MB', value)
   vi.resetModules()
-  await expect(import('./config.js')).rejects.toThrow('uploader.maxFileSize')
+  await expect(import('./config.js')).rejects.toThrow('uploader.maxFileSizeMB')
+})
+
+test.each(['', '   '])('an empty MIME allowlist leaves file types unrestricted: %j', async value => {
+  vi.stubEnv('EVIDENCE_ALLOWED_MIME_TYPES', value)
+  vi.resetModules()
+  const { config } = await import('./config.js')
+  expect(config.get('uploader.allowedMimeTypes')).toEqual([])
+})
+test.each(['.pdf', 'image/*', 'application/pdf,', 'pdf', 'application/pdf; charset=utf-8'])('rejects invalid MIME allowlists: %s', async value => {
+  vi.stubEnv('EVIDENCE_ALLOWED_MIME_TYPES', value)
+  vi.resetModules()
+  await expect(import('./config.js')).rejects.toThrow('uploader.allowedMimeTypes')
 })

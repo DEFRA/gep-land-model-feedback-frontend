@@ -237,10 +237,14 @@ Feature and Other, with the prototype's labels, hints and error messages. Contin
 requires a location method and non-blank text for its selected input. Only that
 input is saved, trimmed, in the Yar session as `issueLocation`; changing the method
 clears the previous input. Back restores the saved answers. Grid cell and feature
-references are required text for now; no catalogue or geographic lookup is performed.
+references are checked for British National Grid format (two grid letters alone for
+a 100 km square, or followed by 2, 4, 6, 8 or 10 digits for finer scales, optionally
+spaced into equal easting and northing groups)
+and OSID format (a hyphenated UUID), respectively. Letters are case-insensitive.
+No catalogue or geographic lookup is performed to check that the reference exists.
 A valid location continues to `/report-issue/data/attributes` for **Which attributes
-are incorrect?**. The GOV.UK checkboxes offer Land cover, Land use, Ownership,
-Soils, Protected areas, Hydrology and Topography with **Select all that apply**.
+are incorrect?**. The GOV.UK checkboxes offer Land cover, Land management, Land use,
+Ownership, Protected areas and Soils in alphabetical order with **Select all that apply**.
 Continue requires at least one selection; empty or invalid submissions show
 **Select which attributes are incorrect** in the error summary and inline error.
 Selections are saved as `incorrectAttributes` in the Yar session and restored on
@@ -372,7 +376,8 @@ restart the frontend:
 CDP_UPLOADER_URL=http://localhost:7337
 CDP_UPLOADER_PUBLIC_URL=http://localhost:7337
 EVIDENCE_S3_BUCKET=atlas-feedback-evidence
-EVIDENCE_MAX_FILE_SIZE=100000000
+EVIDENCE_MAX_FILE_SIZE_MB=100
+EVIDENCE_ALLOWED_MIME_TYPES=
 ```
 
 `CDP_UPLOADER_URL` is the private API endpoint used by the frontend server.
@@ -382,7 +387,23 @@ same-origin `/upload-and-scan/<id>` route, and configure the internal API URL an
 your service's approved bucket. The CDP Platform team must provision the bucket
 and enable uploader access as described in the uploader README. No AWS credentials
 or new S3 SDK are needed by this frontend for the upload/status integration.
-The default limit is 100 MB per file; the uploader enforces it before scanning.
+`EVIDENCE_MAX_FILE_SIZE_MB` is a per-file limit in megabytes (1 MB = 1,000,000
+bytes), defaulting to 100. Decimal values such as `2.5` are supported and converted
+to the nearest byte (minimum one byte). This replaces
+the previous byte-based `EVIDENCE_MAX_FILE_SIZE` setting; update existing `.env`
+files to use the new name and units.
+
+`EVIDENCE_ALLOWED_MIME_TYPES` is a comma-separated allowlist, for example
+`application/pdf,image/jpeg,image/png`. Leave it empty to allow all types until the
+supported types are confirmed. Use exact MIME types, not file extensions or
+wildcards. Invalid MIME types and invalid size limits prevent startup.
+
+Both restrictions are sent to CDP Uploader when an upload is initiated, so they
+are enforced on uploads even if the browser's file picker is bypassed. The page
+shows the configured size and types and uses the allowlist for the file picker's
+`accept` attribute. Rejections appear in the GOV.UK error summary and inline error.
+Restart the frontend and start a new private browser session after changing the
+settings so that an existing upload session does not retain its previous limits.
 
 To test:
 

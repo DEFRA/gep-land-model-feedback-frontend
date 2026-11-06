@@ -26,7 +26,8 @@ export async function initiateUpload (redirect, token) {
       redirect,
       s3Bucket: config.get('uploader.bucket'),
       s3Path: 'evidence',
-      maxFileSize: config.get('uploader.maxFileSize'),
+      maxFileSize: Math.round(config.get('uploader.maxFileSizeMB') * 1000000),
+      ...(config.get('uploader.allowedMimeTypes').length ? { mimeTypes: config.get('uploader.allowedMimeTypes') } : {}),
       metadata: { evidenceToken: token }
     })
   })

@@ -16,11 +16,20 @@ const isDevelopment = process.env.NODE_ENV === 'development'
 
 convict.addFormats(convictFormatWithValidator)
 convict.addFormat({
-  name: 'positive-bytes',
+  name: 'positive-megabytes',
   validate (value) {
-    if (!Number.isSafeInteger(value) || value <= 0) throw new Error('Use a positive whole number of bytes')
+    if (value * 1000000 < 1 || !Number.isSafeInteger(Math.round(value * 1000000))) throw new Error('Use a positive number of megabytes representing at least one byte')
   },
   coerce: Number
+})
+convict.addFormat({
+  name: 'mime-type-list',
+  validate (value) {
+    if (!Array.isArray(value) || value.some(type => typeof type !== 'string' || !/^[a-z0-9!#$&^_.+-]+\/[a-z0-9!#$&^_.+-]+$/.test(type))) {
+      throw new Error('Use a comma-separated list of MIME types, or leave empty for all types')
+    }
+  },
+  coerce: value => typeof value === 'string' ? (value.trim() ? value.split(',').map(type => type.trim().toLowerCase()) : []) : value
 })
 
 export const config = convict({
@@ -380,11 +389,17 @@ export const config = convict({
       default: 'atlas-feedback-evidence',
       env: 'EVIDENCE_S3_BUCKET'
     },
-    maxFileSize: {
-      doc: 'Maximum evidence file size in bytes',
-      format: 'positive-bytes',
-      default: 100000000,
-      env: 'EVIDENCE_MAX_FILE_SIZE'
+    maxFileSizeMB: {
+      doc: 'Maximum evidence file size in megabytes (1 MB = 1,000,000 bytes)',
+      format: 'positive-megabytes',
+      default: 100,
+      env: 'EVIDENCE_MAX_FILE_SIZE_MB'
+    },
+    allowedMimeTypes: {
+      doc: 'Comma-separated allowed evidence MIME types; empty allows all types',
+      format: 'mime-type-list',
+      default: [],
+      env: 'EVIDENCE_ALLOWED_MIME_TYPES'
     }
   },
   geonetwork: {

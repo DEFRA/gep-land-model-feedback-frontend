@@ -4,6 +4,25 @@ import Joi from 'joi'
 
 const datasetQuestion = 'Which dataset is the issue within?'
 const locationQuestion = 'Enter the location of the issue'
+const gridReferencePattern = /^[HNOTS][A-HJ-Z](?:\s*(?:(?:\d{2}){1,5}|\d\s+\d|\d{2}\s+\d{2}|\d{3}\s+\d{3}|\d{4}\s+\d{4}|\d{5}\s+\d{5}))?$/i
+const featureReferencePattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+function referenceSchema (pattern, missing, invalid) {
+  return Joi.string().trim().pattern(pattern).required().messages({
+    'any.required': missing,
+    'string.empty': missing,
+    'string.base': invalid,
+    'string.pattern.base': invalid
+  })
+}
+const locationInputs = {
+  gridReference: referenceSchema(gridReferencePattern, 'Enter a grid cell reference', 'Enter the grid cell reference in British National Grid format'),
+  featureReference: referenceSchema(featureReferencePattern, 'Enter a feature reference', 'Enter the feature reference in OSID format'),
+  locationDescription: Joi.string().trim().required().messages({
+    'any.required': locationQuestion,
+    'string.empty': locationQuestion,
+    'string.base': locationQuestion
+  })
+}
 export const locationOptions = [
   { value: 'grid', name: 'gridReference', id: 'grid-reference', text: 'Grid cell', label: 'Land model grid cell reference (British National Grid)', hint: 'For example, SK1481' },
   { value: 'feature', name: 'featureReference', id: 'feature-reference', text: 'Feature', label: 'Land model feature reference (OSID)', hint: 'For example, 1e2f9011-ece7-4068-80ec-27e837259cf8' },
@@ -11,7 +30,7 @@ export const locationOptions = [
 ]
 const locationFields = Object.fromEntries(locationOptions.map(({ name, value }) => [name, Joi.when('locationType', {
   is: value,
-  then: Joi.string().trim().required(),
+  then: locationInputs[name],
   otherwise: Joi.any().strip()
 })]))
 const locationSchema = Joi.object({
@@ -62,7 +81,7 @@ function locationModel (request, values = {}, details = []) {
   const options = locationOptions.map(option => ({
     ...option,
     inputValue: typeof values[option.name] === 'string' ? values[option.name] : '',
-    error: hasError(option.name) ? { text: locationQuestion } : undefined
+    error: hasError(option.name) ? { text: details.find(({ path }) => path[0] === option.name).message } : undefined
   }))
   return {
     ...getChangeNavigation(request, '/report-issue/data/location', '/report-issue/data'),
@@ -156,12 +175,11 @@ const attributesQuestion = 'Which attributes are incorrect?'
 const attributesMessage = 'Select which attributes are incorrect'
 export const attributeOptions = [
   { value: 'land-cover', text: 'Land cover' },
+  { value: 'land-management', text: 'Land management' },
   { value: 'land-use', text: 'Land use' },
   { value: 'ownership', text: 'Ownership' },
-  { value: 'soils', text: 'Soils' },
   { value: 'protected-areas', text: 'Protected areas' },
-  { value: 'hydrology', text: 'Hydrology' },
-  { value: 'topography', text: 'Topography' }
+  { value: 'soils', text: 'Soils' }
 ]
 const attributesSchema = Joi.array().items(Joi.string().valid(...attributeOptions.map(({ value }) => value)))
   .min(1).unique().single().required()

@@ -33,7 +33,8 @@
         {{ govukFileUpload({
           id: "evidence-files", name: "evidenceFiles",
           label: { text: "Upload files", classes: "govuk-label--m" },
-          hint: { text: "Choose files, then select Upload files. Each file must be smaller than " + maxFileSizeMB + " MB. You can continue without adding evidence." },
+          hint: { text: "Choose files, then select Upload files. Each file must be " + maxFileSizeMB + " MB or smaller. " + ("Allowed file types: " + allowedMimeTypes + ". " if allowedMimeTypes else "") + "You can continue without adding evidence." },
+          attributes: { accept: allowedMimeTypes } if allowedMimeTypes else {},
           errorMessage: fileError, javascript: true, multiple: true
         }) }}
         {{ govukButton({ text: "Upload files", classes: "govuk-button--secondary" }) }}

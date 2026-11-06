@@ -85,19 +85,19 @@ test.each([{}, { locationType: '' }, { locationType: 'invalid' }, { locationType
 })
 
 const cases = [
-  ['grid', 'gridReference', 'grid-reference', 'SK1481'],
-  ['feature', 'featureReference', 'feature-reference', '1e2f9011-ece7-4068-80ec-27e837259cf8'],
-  ['other', 'locationDescription', 'location-description', 'Near the village centre']
+  ['grid', 'gridReference', 'grid-reference', 'SK1481', 'Enter a grid cell reference', 'Enter the grid cell reference in British National Grid format'],
+  ['feature', 'featureReference', 'feature-reference', '1e2f9011-ece7-4068-80ec-27e837259cf8', 'Enter a feature reference', 'Enter the feature reference in OSID format'],
+  ['other', 'locationDescription', 'location-description', 'Near the village centre', 'Enter the location of the issue', 'Enter the location of the issue']
 ]
-for (const [locationType, name, id, value] of cases) {
+for (const [locationType, name, id, value, missing, invalid] of cases) {
   test.each([undefined, '', '   ', ['one', 'two']])(`${locationType} requires non-blank text: %j`, async input => {
     await start()
     const response = await submit(locationPath, { locationType, [name]: input })
     const $ = load(response.payload)
     expect(response.statusCode).toBe(400)
-    expect($('.govuk-error-summary__list a').text()).toBe('Enter the location of the issue')
+    expect($('.govuk-error-summary__list a').text()).toBe(Array.isArray(input) ? invalid : missing)
     expect($('.govuk-error-summary__list a').attr('href')).toBe(`#${id}`)
-    expect($(`#${id}-error`).text()).toContain('Enter the location of the issue')
+    expect($(`#${id}-error`).text()).toContain(Array.isArray(input) ? invalid : missing)
     expect($(`#${id}`).closest('.govuk-radios__conditional').hasClass('govuk-radios__conditional--hidden')).toBe(false)
     expect($('input[name="locationType"]:checked').val()).toBe(locationType)
   })
@@ -117,6 +117,57 @@ for (const [locationType, name, id, value] of cases) {
     expect(back('input[name="locationType"]:checked').val()).toBe(locationType)
   })
 }
+
+test.each([
+  'SE', 'SD', 'SK', 'se', '  SD  ',
+  'SE 1 5', 'SD 0 5', 'SE 03 56', 'SE 02 56',
+  'SE 026 565', 'SE 027 565', 'SE 0273 5655', 'SE 0274 5655',
+  'SE15', 'SD05', 'SE0356', 'SE0256', 'SE026565', 'SE027565', 'SE02735655', 'SE02745655',
+  'SK14', 'SK1481', 'SK148815', 'SK14818152', 'SK1481881523',
+  'sk1481', 'SK 14 81', 'SK 148 815', 'SK 1481 8152', 'SK 14818 81523', 'SK 1 4',
+  'HP1234', 'TV1234'
+])('accepts British National Grid reference %s', async gridReference => {
+  await start()
+  const response = await submit(locationPath, { locationType: 'grid', gridReference })
+  expect(response.statusCode).toBe(303)
+  expect(response.request.yar.get('issueLocation')).toEqual({ locationType: 'grid', gridReference: gridReference.trim() })
+})
+
+test.each([
+  ['grid', 'gridReference', 'grid-reference', 'Enter the grid cell reference in British National Grid format', [
+    'S', 'ZZ', 'SI', 'SK1', 'SK123', 'SK12345', 'SK123456789012', 'ZZ1481', 'SI1481',
+    'SK 148 81', '1481', 'SK14.81', 'SK-1481', 'SK1481 extra'
+  ]],
+  ['feature', 'featureReference', 'feature-reference', 'Enter the feature reference in OSID format', [
+    '123456', 'osgb1000000000000001', '1e2f9011ece7406880ec27e837259cf8',
+    '1e2f9011-ece7-4068-80ec-27e837259cfg', '1e2f9011-ece7-4068-80ec-27e837259cf',
+    '{1e2f9011-ece7-4068-80ec-27e837259cf8}'
+  ]]
+])('rejects malformed %s references without changing the saved answer', async (locationType, name, id, message, invalidValues) => {
+  await start()
+  const saved = { locationType: 'other', locationDescription: 'Previous location' }
+  await submit(locationPath, saved)
+  for (const value of invalidValues) {
+    const response = await submit(`${locationPath}?returnTo=check-your-answers`, { locationType, [name]: value })
+    const $ = load(response.payload)
+    expect(response.statusCode).toBe(400)
+    expect($('title').text().trim()).toMatch(/^Error:/)
+    expect($('.govuk-error-summary__list a').text()).toBe(message)
+    expect($('.govuk-error-summary__list a').attr('href')).toBe(`#${id}`)
+    expect($(`#${id}-error`).text()).toContain(message)
+    expect($(`#${id}`).attr('aria-describedby')).toContain(`${id}-error`)
+    expect($(`#${id}`).val()).toBe(value)
+    expect(response.request.yar.get('issueLocation')).toEqual(saved)
+  }
+})
+
+test('accepts a case-insensitive OSID with surrounding whitespace', async () => {
+  await start()
+  const featureReference = '1E2F9011-ECE7-4068-80EC-27E837259CF8'
+  const response = await submit(locationPath, { locationType: 'feature', featureReference: `  ${featureReference}  ` })
+  expect(response.statusCode).toBe(303)
+  expect(response.request.yar.get('issueLocation')).toEqual({ locationType: 'feature', featureReference })
+})
 
 test('escapes saved location text', async () => {
   await start()
@@ -160,8 +211,8 @@ async function startAttributes () {
   return visit(attributesPath)
 }
 
-const attributeValues = ['land-cover', 'land-use', 'ownership', 'soils', 'protected-areas', 'hydrology', 'topography']
-const attributeLabels = ['Land cover', 'Land use', 'Ownership', 'Soils', 'Protected areas', 'Hydrology', 'Topography']
+const attributeValues = ['land-cover', 'land-management', 'land-use', 'ownership', 'protected-areas', 'soils']
+const attributeLabels = ['Land cover', 'Land management', 'Land use', 'Ownership', 'Protected areas', 'Soils']
 const descriptionPath = '/report-issue/description'
 
 test('attributes uses enabled GOV.UK checkboxes, prototype wording and a Continue form', async () => {
@@ -171,7 +222,7 @@ test('attributes uses enabled GOV.UK checkboxes, prototype wording and a Continu
   expect($('h1').text().trim()).toBe('Which attributes are incorrect?')
   expect($('#attributes-hint').text().trim()).toBe('Select all that apply')
   expect($('.govuk-checkboxes__label').map((_, el) => $(el).text().trim()).get()).toEqual(attributeLabels)
-  expect($('input[type="checkbox"]:enabled')).toHaveLength(7)
+  expect($('input[type="checkbox"]:enabled')).toHaveLength(6)
   expect($('input[type="checkbox"]:checked')).toHaveLength(0)
   expect($('form').attr('action')).toBe(attributesPath)
   expect($('form .govuk-button').is(':disabled')).toBe(false)
@@ -179,7 +230,7 @@ test('attributes uses enabled GOV.UK checkboxes, prototype wording and a Continu
   expect($('.govuk-back-link').attr('href')).toBe(locationPath)
 })
 
-test.each([undefined, '', [], 'invalid', ['land-cover', 'invalid'], ['land-cover', 'land-cover'], { value: 'land-cover' }].map(attributes => [attributes]))('rejects invalid attribute selections: %j', async attributes => {
+test.each([undefined, '', [], 'invalid', 'hydrology', 'topography', ['land-cover', 'invalid'], ['land-cover', 'land-cover'], { value: 'land-cover' }].map(attributes => [attributes]))('rejects invalid attribute selections: %j', async attributes => {
   await startAttributes()
   const response = await submit(attributesPath, { attributes })
   const $ = load(response.payload)

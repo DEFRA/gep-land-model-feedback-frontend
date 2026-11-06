@@ -80,7 +80,8 @@ export const evidenceController = {
       ...getChangeNavigation(request, evidencePath, '/report-issue/description'),
       action: uploadUrl(active.id),
       files: evidenceFiles(request).map(file => ({ ...file, removeAction: `${evidencePath}/remove/${file.fileId}${request.query.returnTo === 'check-your-answers' ? '?returnTo=check-your-answers' : ''}` })),
-      maxFileSizeMB: config.get('uploader.maxFileSize') / 1000000,
+      maxFileSizeMB: config.get('uploader.maxFileSizeMB'),
+      allowedMimeTypes: config.get('uploader.allowedMimeTypes').join(', '),
       fileError: errors.length ? { text: errors.join('. ') } : undefined,
       errorSummary: errors.length ? { titleText: 'There is a problem', errorList: errors.map(text => ({ text, href: '#evidence-files' })) } : undefined
     }).code(errors.length ? 400 : 200)
