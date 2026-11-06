@@ -1,8 +1,15 @@
 {% extends 'layouts/page.njk' %}
 
+{% from "govuk/components/back-link/macro.njk" import govukBackLink %}
 {% from "govuk/components/radios/macro.njk" import govukRadios %}
 {% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
 {% from "govuk/components/button/macro.njk" import govukButton %}
+
+{% block beforeContent %}
+  {% if backLink == "/report-issue/check-your-answers" %}
+    {{ govukBackLink({ text: "Back", href: backLink }) }}
+  {% endif %}
+{% endblock %}
 
 {% block content %}
   <div class="govuk-grid-row">
@@ -11,7 +18,7 @@
         {{ govukErrorSummary(errorSummary) }}
       {% endif %}
 
-      <form action="/" method="post" novalidate>
+      <form action="{{ formAction }}" method="post" novalidate>
         <input type="hidden" name="crumb" value="{{ crumb }}">
         {{ govukRadios(radios) }}
         {{ govukButton({ text: "Continue" }) }}

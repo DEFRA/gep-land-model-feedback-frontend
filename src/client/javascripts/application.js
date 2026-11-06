@@ -4,6 +4,7 @@ import {
   Checkboxes,
   CharacterCount,
   ErrorSummary,
+  FileUpload,
   Radios,
   SkipLink
 } from 'govuk-frontend'
@@ -16,5 +17,6 @@ createAll(Button)
 createAll(Checkboxes)
 createAll(CharacterCount)
 createAll(ErrorSummary)
+createAll(FileUpload)
 createAll(Radios)
 createAll(SkipLink)

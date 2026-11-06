@@ -1,9 +1,10 @@
+import { getChangeNavigation, nextPage } from '../navigation.js'
 import Joi from 'joi'
 
 const question = 'What does the technical issue relate to?'
 const areaMessage = 'Select what the technical issue relates to'
 const otherMessage = 'Enter what the issue relates to'
-const options = [
+export const options = [
   { value: 'map-viewer', text: 'ATLAS Map Viewer' },
   { value: 'data-search', text: 'ATLAS Data Search & Find' },
   { value: 'repository-integration', text: 'ATLAS Repository Integration' },
@@ -12,7 +13,7 @@ const options = [
 ]
 const allowedAreas = [...options.map(({ value }) => value), 'other']
 
-function pageModel (values, details = []) {
+function pageModel (request, values, details = []) {
   const areaError = details.some(({ path }) => path[0] === 'technicalArea')
   const otherError = details.some(({ path }) => path[0] === 'technicalOther')
   const errorList = [
@@ -20,6 +21,7 @@ function pageModel (values, details = []) {
     ...(otherError ? [{ text: otherMessage, href: '#technical-other' }] : [])
   ]
   return {
+    ...getChangeNavigation(request, '/report-issue/technical', '/'),
     pageTitle: `${errorList.length ? 'Error: ' : ''}${question}`,
     question,
     options,
@@ -40,7 +42,7 @@ export const technicalGetController = {
     if (!isTechnicalIssue(request)) {
       return h.redirect('/').code(303)
     }
-    return h.view('report-issue/technical/index', pageModel({
+    return h.view('report-issue/technical/index', pageModel(request, {
       technicalArea: request.yar.get('technicalArea'),
       technicalOther: request.yar.get('technicalOther')
     }))
@@ -62,7 +64,7 @@ export const technicalPostController = {
         if (!isTechnicalIssue(request)) {
           return h.redirect('/').code(303).takeover()
         }
-        return h.view('report-issue/technical/index', pageModel(request.payload, error.details))
+        return h.view('report-issue/technical/index', pageModel(request, request.payload, error.details))
           .code(400)
           .takeover()
       }
@@ -75,7 +77,7 @@ export const technicalPostController = {
     const { technicalArea, technicalOther } = request.payload
     request.yar.set('technicalArea', technicalArea)
     request.yar.set('technicalOther', technicalArea === 'other' ? technicalOther : null)
-    return h.redirect('/report-issue/description').code(303)
+    return h.redirect(nextPage(request, '/report-issue/description')).code(303)
   }
 }
 

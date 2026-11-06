@@ -134,7 +134,7 @@ test('description uses the GOV.UK character-count component, prototype hint and 
   expect($('#issue-description').is('textarea.govuk-js-character-count')).toBe(true)
   expect($('#issue-description-hint').text().trim()).toBe('Enter as much information as possible to help us triage the issue. You will be able to attach files on the following page')
   expect($('.govuk-back-link').attr('href')).toBe(path)
-  expect($('.govuk-grid-column-two-thirds .govuk-button').attr('disabled')).toBeDefined()
+  expect($('form .govuk-button').attr('disabled')).toBeUndefined()
 })
 
 test('prevents skipping workflow steps, including invalid or valid POSTs from the wrong branch', async () => {

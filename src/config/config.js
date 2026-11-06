@@ -52,6 +52,13 @@ export const config = convict({
     format: String,
     default: 'Defra Group Land Model Issue Reporting'
   },
+  supportMailboxAddress: {
+    doc: 'Support contact email address shown on the Issue reported page',
+    format: 'email',
+    nullable: true,
+    default: 'example@example.com',
+    env: 'SUPPORT_MAILBOX_ADDRESS'
+  },
   root: {
     doc: 'Project root',
     format: String,

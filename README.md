@@ -256,8 +256,61 @@ redirect to the appropriate earlier step. The previous technical description URL
 redirects to this shared URL. The description page uses the **GOV.UK Character
 Count component**, including its supplied JavaScript, for the prototype's
 2,000-character counter and hint. No custom character-counting JavaScript is used.
-Its onward Continue button remains disabled until the following step is implemented;
-description text is not saved yet and no report or notification is submitted.
+Continue requires a non-blank description of up to 2,000 characters, saves the
+trimmed text as `issueDescription` in the Yar session, and redirects to
+`/report-issue/evidence`. Back restores the saved description. Empty or over-limit
+submissions show a GOV.UK error summary and inline error.
+
+The shared **Add any evidence of the issue** page uses the
+[improved GOV.UK File upload component](https://design-system.service.gov.uk/components/file-upload/#using-the-improved-file-upload-component),
+with `javascript: true` and the library's `FileUpload` initializer. Users can choose
+or drop multiple files. File selection is optional and stays in the browser:
+there is no upload form, file POST endpoint, storage integration or file validation
+yet. Selected files are not retained when navigating away or reloading. The page
+states that files will not be uploaded or saved. Continue opens
+`/report-issue/check-your-answers` without sending selected files.
+
+**Check your answers** uses the GOV.UK Summary list component. It shows Issue type,
+Location ID (or Location) and Incorrect attributes for a data issue, or Relates to
+for a technical issue, followed by Description and Files. Files shows **No files
+added** while upload integration is unavailable. The labels follow the prototype,
+using ATLAS terminology. Description line breaks and attribute lists are preserved;
+user-provided text is escaped.
+
+Change links restore the saved answer and use a fixed
+`returnTo=check-your-answers` flag. A valid change returns directly to the review;
+validation errors retain this flag. If changing the issue type requires missing
+answers in the new branch, the normal workflow guards send the user to the next
+required step. Arbitrary return URLs are ignored. Back returns to the evidence
+page. Submit is a CSRF-protected POST to `/report-issue/check-your-answers`.
+It revalidates the workflow prerequisites, records a receipt in the Yar session
+and redirects with HTTP 303 to `/report-issue/issue-reported`.
+
+The **Issue reported** page uses the GOV.UK confirmation Panel. Its reference is
+the first 12 hexadecimal characters of a server-generated `crypto.randomUUID()`,
+with hyphens removed and letters uppercased. The full UUID is retained as the
+receipt ID alongside an answer snapshot. The shortened display reference is
+randomised, not a guarantee of global uniqueness. Refreshing the confirmation or
+posting the same answers again reuses the receipt; submitting changed answers
+creates a new one. Opening the confirmation URL without a receipt returns to the
+review page. Receipts are session-scoped and expire with the session.
+
+Set the support contact address through configuration:
+
+```dotenv
+SUPPORT_MAILBOX_ADDRESS=atlas-support@example.com
+```
+
+Use your real support mailbox in deployed environments. The value is validated
+as an email address and displayed as a `mailto:` link on the confirmation page.
+If unset, the email sentence is omitted. No address is hard-coded into the
+page. The confirmation wording matches the prototype, including “We have sent a
+confirmation email to …” before “What happens next”. Email delivery remains a
+future integration; this wording currently forms part of the frontend scaffold.
+
+This completes the frontend workflow scaffold. Receipts are stored only in the
+session cache; no external case system, durable report store, email delivery or
+file storage is integrated yet.
 
 CSRF validation now covers application forms; the OIDC callback remains exempt
 because it is verified by the authentication flow. Include the hidden `crumb`

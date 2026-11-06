@@ -1,8 +1,9 @@
+import { getChangeNavigation, nextPage } from '../navigation.js'
 import Joi from 'joi'
 
 const datasetQuestion = 'Which dataset is the issue within?'
 const locationQuestion = 'Enter the location of the issue'
-const locationOptions = [
+export const locationOptions = [
   { value: 'grid', name: 'gridReference', id: 'grid-reference', text: 'Grid cell', label: 'Land model grid cell reference (British National Grid)', hint: 'For example, SK1481' },
   { value: 'feature', name: 'featureReference', id: 'feature-reference', text: 'Feature', label: 'Land model feature reference (OSID)', hint: 'For example, 1e2f9011-ece7-4068-80ec-27e837259cf8' },
   { value: 'other', name: 'locationDescription', id: 'location-description', text: 'Other', label: 'Describe the location', hint: 'Enter as much information as possible to help us locate the issue' }
@@ -25,16 +26,17 @@ function errors (question, errorList) {
   }
 }
 
-function datasetModel (dataset, invalid = false) {
+function datasetModel (request, dataset, invalid = false) {
   const text = 'Select which dataset the issue is within'
   return {
+    ...getChangeNavigation(request, '/report-issue/data', '/'),
     ...errors(datasetQuestion, invalid ? [{ text, href: '#dataset' }] : []),
     dataset,
     datasetError: invalid ? { text } : undefined
   }
 }
 
-function locationModel (values = {}, details = []) {
+function locationModel (request, values = {}, details = []) {
   const hasError = name => details.some(({ path }) => path[0] === name)
   const typeError = hasError('locationType') ? { text: 'Select how you want to identify the location of the issue' } : undefined
   const options = locationOptions.map(option => ({
@@ -43,6 +45,7 @@ function locationModel (values = {}, details = []) {
     error: hasError(option.name) ? { text: locationQuestion } : undefined
   }))
   return {
+    ...getChangeNavigation(request, '/report-issue/data/location', '/report-issue/data'),
     ...errors(locationQuestion, [
       ...(typeError ? [{ text: typeError.text, href: '#location-type' }] : []),
       ...options.filter(({ error }) => error).map(({ error, id }) => ({ text: error.text, href: `#${id}` }))
@@ -61,7 +64,7 @@ function guard (request) {
 export const datasetGetController = {
   handler (request, h) {
     if (request.yar.get('issueType') !== 'data') return h.redirect('/').code(303)
-    return h.view('report-issue/data/index', datasetModel(request.yar.get('dataset')))
+    return h.view('report-issue/data/index', datasetModel(request, request.yar.get('dataset')))
   }
 }
 
@@ -71,14 +74,14 @@ export const datasetPostController = {
       payload: Joi.object({ dataset: Joi.string().valid('land-model').required() }).options({ stripUnknown: true }),
       failAction (request, h) {
         if (request.yar.get('issueType') !== 'data') return h.redirect('/').code(303).takeover()
-        return h.view('report-issue/data/index', datasetModel(undefined, true)).code(400).takeover()
+        return h.view('report-issue/data/index', datasetModel(request, undefined, true)).code(400).takeover()
       }
     }
   },
   handler (request, h) {
     if (request.yar.get('issueType') !== 'data') return h.redirect('/').code(303)
     request.yar.set('dataset', request.payload.dataset)
-    return h.redirect('/report-issue/data/location').code(303)
+    return h.redirect(nextPage(request, '/report-issue/data/location')).code(303)
   }
 }
 
@@ -86,7 +89,7 @@ export const locationGetController = {
   handler (request, h) {
     const redirect = guard(request)
     if (redirect) return h.redirect(redirect).code(303)
-    return h.view('report-issue/data/location', locationModel(request.yar.get('issueLocation') ?? {}))
+    return h.view('report-issue/data/location', locationModel(request, request.yar.get('issueLocation') ?? {}))
   }
 }
 
@@ -97,7 +100,7 @@ export const locationPostController = {
       failAction (request, h, error) {
         const redirect = guard(request)
         if (redirect) return h.redirect(redirect).code(303).takeover()
-        return h.view('report-issue/data/location', locationModel(request.payload, error.details)).code(400).takeover()
+        return h.view('report-issue/data/location', locationModel(request, request.payload, error.details)).code(400).takeover()
       }
     }
   },
@@ -105,13 +108,13 @@ export const locationPostController = {
     const redirect = guard(request)
     if (redirect) return h.redirect(redirect).code(303)
     request.yar.set('issueLocation', request.payload)
-    return h.redirect('/report-issue/data/attributes').code(303)
+    return h.redirect(nextPage(request, '/report-issue/data/attributes')).code(303)
   }
 }
 
 const attributesQuestion = 'Which attributes are incorrect?'
 const attributesMessage = 'Select which attributes are incorrect'
-const attributeOptions = [
+export const attributeOptions = [
   { value: 'land-cover', text: 'Land cover' },
   { value: 'land-use', text: 'Land use' },
   { value: 'ownership', text: 'Ownership' },
@@ -123,9 +126,10 @@ const attributeOptions = [
 const attributesSchema = Joi.array().items(Joi.string().valid(...attributeOptions.map(({ value }) => value)))
   .min(1).unique().single().required()
 
-function attributesModel (attributes, invalid = false) {
+function attributesModel (request, attributes, invalid = false) {
   const values = Array.isArray(attributes) ? attributes : [attributes]
   return {
+    ...getChangeNavigation(request, '/report-issue/data/attributes', '/report-issue/data/location'),
     ...errors(attributesQuestion, invalid ? [{ text: attributesMessage, href: '#attributes' }] : []),
     attributeOptions,
     attributes: values.filter(value => attributeOptions.some(option => option.value === value)),
@@ -149,7 +153,7 @@ export const attributesController = {
   handler (request, h) {
     const redirect = getAttributesRedirect(request)
     if (redirect) return h.redirect(redirect).code(303)
-    return h.view('report-issue/data/attributes', attributesModel(request.yar.get('incorrectAttributes')))
+    return h.view('report-issue/data/attributes', attributesModel(request, request.yar.get('incorrectAttributes')))
   }
 }
 
@@ -160,7 +164,7 @@ export const attributesPostController = {
       failAction (request, h) {
         const redirect = getAttributesRedirect(request)
         if (redirect) return h.redirect(redirect).code(303).takeover()
-        return h.view('report-issue/data/attributes', attributesModel(request.payload.attributes, true)).code(400).takeover()
+        return h.view('report-issue/data/attributes', attributesModel(request, request.payload.attributes, true)).code(400).takeover()
       }
     }
   },
@@ -168,6 +172,6 @@ export const attributesPostController = {
     const redirect = getAttributesRedirect(request)
     if (redirect) return h.redirect(redirect).code(303)
     request.yar.set('incorrectAttributes', request.payload.attributes)
-    return h.redirect('/report-issue/description').code(303)
+    return h.redirect(nextPage(request, '/report-issue/description')).code(303)
   }
 }

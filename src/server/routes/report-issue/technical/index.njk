@@ -7,7 +7,7 @@
 {% from "govuk/components/button/macro.njk" import govukButton %}
 
 {% block beforeContent %}
-  {{ govukBackLink({ text: "Back", href: "/" }) }}
+  {{ govukBackLink({ text: "Back", href: backLink }) }}
 {% endblock %}
 
 {% block content %}
@@ -27,7 +27,7 @@
         }) }}
       {% endset %}
 
-      <form action="/report-issue/technical" method="post" novalidate>
+      <form action="{{ formAction }}" method="post" novalidate>
         <input type="hidden" name="crumb" value="{{ crumb }}">
         {{ govukRadios({
           name: "technicalArea",

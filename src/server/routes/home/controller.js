@@ -1,3 +1,4 @@
+import { getChangeNavigation, nextPage } from '../report-issue/navigation.js'
 import Joi from 'joi'
 import { statusCodes } from '#/server/common/constants/status-codes.js'
 
@@ -16,8 +17,9 @@ const issueTypes = [
   }
 ]
 
-function pageModel (issueType, hasError = false) {
+function pageModel (request, issueType, hasError = false) {
   return {
+    ...getChangeNavigation(request, '/', '/'),
     pageTitle: `${hasError ? 'Error: ' : ''}${question}`,
     radios: {
       name: 'issueType',
@@ -44,7 +46,7 @@ function pageModel (issueType, hasError = false) {
 
 export const homeController = {
   handler (request, h) {
-    return h.view('home/index', pageModel(request.yar.get('issueType')))
+    return h.view('home/index', pageModel(request, request.yar.get('issueType')))
   }
 }
 
@@ -56,7 +58,7 @@ export const issueTypeController = {
       }).options({ stripUnknown: true }),
       failAction (request, h) {
         return h
-          .view('home/index', pageModel(request.payload?.issueType, true))
+          .view('home/index', pageModel(request, request.payload?.issueType, true))
           .code(statusCodes.badRequest)
           .takeover()
       }
@@ -64,6 +66,6 @@ export const issueTypeController = {
   },
   handler (request, h) {
     request.yar.set('issueType', request.payload.issueType)
-    return h.redirect(`/report-issue/${request.payload.issueType}`).code(303)
+    return h.redirect(nextPage(request, `/report-issue/${request.payload.issueType}`)).code(303)
   }
 }

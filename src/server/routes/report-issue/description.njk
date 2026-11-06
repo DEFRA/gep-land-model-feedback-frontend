@@ -3,7 +3,7 @@
 {% from "govuk/components/back-link/macro.njk" import govukBackLink %}
 {% from "govuk/components/character-count/macro.njk" import govukCharacterCount %}
 {% from "govuk/components/button/macro.njk" import govukButton %}
-{% from "govuk/components/inset-text/macro.njk" import govukInsetText %}
+{% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
 
 {% block beforeContent %}
   {{ govukBackLink({ text: "Back", href: backLink }) }}
@@ -12,16 +12,21 @@
 {% block content %}
   <div class="govuk-grid-row">
     <div class="govuk-grid-column-two-thirds">
-      {{ govukCharacterCount({
-        name: "issueDescription",
-        id: "issue-description",
-        maxlength: 2000,
-        rows: 5,
-        label: { text: pageTitle, isPageHeading: true, classes: "govuk-label--l" },
-        hint: { text: "Enter as much information as possible to help us triage the issue. You will be able to attach files on the following page" }
-      }) }}
-      {{ govukInsetText({ text: "The following step is not available yet. Your issue has not been submitted." }) }}
-      {{ govukButton({ text: "Continue", disabled: true }) }}
+      {% if errorSummary %}{{ govukErrorSummary(errorSummary) }}{% endif %}
+      <form action="{{ formAction }}" method="post" novalidate>
+        <input type="hidden" name="crumb" value="{{ crumb }}">
+        {{ govukCharacterCount({
+          name: "issueDescription",
+          id: "issue-description",
+          maxlength: 2000,
+          rows: 5,
+          value: issueDescription,
+          errorMessage: descriptionError,
+          label: { text: question, isPageHeading: true, classes: "govuk-label--l" },
+          hint: { text: "Enter as much information as possible to help us triage the issue. You will be able to attach files on the following page" }
+        }) }}
+        {{ govukButton({ text: "Continue" }) }}
+      </form>
     </div>
   </div>
 {% endblock %}

@@ -5,13 +5,13 @@
 {% from "govuk/components/button/macro.njk" import govukButton %}
 
 {% block beforeContent %}
-  {{ govukBackLink({ text: "Back", href: "/" }) }}
+  {{ govukBackLink({ text: "Back", href: backLink }) }}
 {% endblock %}
 {% block content %}
   <div class="govuk-grid-row">
     <div class="govuk-grid-column-two-thirds">
       {% if errorSummary %}{{ govukErrorSummary(errorSummary) }}{% endif %}
-      <form action="/report-issue/data" method="post" novalidate>
+      <form action="{{ formAction }}" method="post" novalidate>
         <input type="hidden" name="crumb" value="{{ crumb }}">
         {{ govukRadios({
           name: "dataset", idPrefix: "dataset", value: dataset,
