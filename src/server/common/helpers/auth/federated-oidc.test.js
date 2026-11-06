@@ -69,8 +69,11 @@ function createMockH () {
 describe('#federatedOidc', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.spyOn(console, 'error').mockImplementation(() => {})
     config.get.mockImplementation((key) => configValues[key])
   })
+
+  afterEach(() => vi.restoreAllMocks())
 
   describe('register', () => {
     test('registers scheme and strategy', () => {
@@ -301,6 +304,18 @@ describe('#federatedOidc', () => {
           }
         }, 'OIDC post-login failed')
         expect(JSON.stringify(logError.mock.calls)).not.toContain('private-')
+        expect(console.error).toHaveBeenCalledOnce()
+        const [line] = vi.mocked(console.error).mock.calls[0]
+        expect(line).toMatch(/^OIDC post-login failed: /)
+        expect(JSON.parse(line.replace(/^OIDC post-login failed: /, ''))).toMatchObject({
+          name: 'ResponseBodyError',
+          statusCode: 400,
+          oauthError: 'invalid_client',
+          oauthDescription: 'AADSTS: No matching federated identity credential',
+          correlationId: 'correlation-id',
+          traceId: 'trace-id'
+        })
+        expect(line).not.toContain('private-')
       } finally {
         logError.mockRestore()
       }
@@ -342,6 +357,8 @@ describe('#federatedOidc', () => {
 
       expect(Boom.isBoom(result)).toBe(true)
       expect(result.output.statusCode).toBe(401)
+      expect(console.error).toHaveBeenCalledWith(expect.stringContaining('OIDC pre-login failed: '))
+      expect(console.error).toHaveBeenCalledWith(expect.stringContaining('PKCE generation failed'))
     })
   })
 })

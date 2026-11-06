@@ -90,7 +90,10 @@ OIDC pre-login and post-login failures log an `oidcError` object with the except
 name, message, code, HTTP status, OAuth error and description, nested cause code,
 and provider correlation/trace IDs when available. These are error-level entries;
 `LOG_LEVEL=info` includes them. Request/response objects and full causes are not copied.
-`LOG_ENABLED=false` disables logging. Restart the app after changing these values.
+These OIDC failures also emit a single plain-text `console.error` line containing
+the same selected diagnostic fields as JSON, for hosting pipelines that drop
+custom fields. This stderr entry bypasses `LOG_LEVEL` and `LOG_ENABLED`.
+`LOG_ENABLED=false` disables the configured logger. Restart the app after changing these values.
 
 When adding a new external API operation, wrap the actual asynchronous call with
 `logExternalCall`, using fixed service and operation names. Do not pass URLs,
