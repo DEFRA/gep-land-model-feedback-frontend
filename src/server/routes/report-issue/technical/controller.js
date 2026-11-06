@@ -75,19 +75,14 @@ export const technicalPostController = {
     const { technicalArea, technicalOther } = request.payload
     request.yar.set('technicalArea', technicalArea)
     request.yar.set('technicalOther', technicalArea === 'other' ? technicalOther : null)
-    return h.redirect('/report-issue/technical/description').code(303)
+    return h.redirect('/report-issue/description').code(303)
   }
 }
 
-export const descriptionController = {
-  handler (request, h) {
-    if (!isTechnicalIssue(request)) {
-      return h.redirect('/').code(303)
-    }
-    const area = request.yar.get('technicalArea')
-    if (!allowedAreas.includes(area) || (area === 'other' && !request.yar.get('technicalOther'))) {
-      return h.redirect('/report-issue/technical').code(303)
-    }
-    return h.view('report-issue/technical/description', { pageTitle: 'Enter a description of the issue' })
+export function getTechnicalDescriptionRedirect (request) {
+  if (!isTechnicalIssue(request)) return '/'
+  const area = request.yar.get('technicalArea')
+  if (!allowedAreas.includes(area) || (area === 'other' && !request.yar.get('technicalOther'))) {
+    return '/report-issue/technical'
   }
 }

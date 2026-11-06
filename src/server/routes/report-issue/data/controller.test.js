@@ -145,10 +145,110 @@ test('guards skipped steps and submissions from the wrong branch', async () => {
 
 test('retains authentication and CSRF protection', async () => {
   await start()
-  for (const url of [datasetPath, locationPath]) {
+  for (const url of [datasetPath, locationPath, attributesPath]) {
     expect((await visit(url, {})).statusCode).toBe(403)
     const response = await server.inject({ method: 'POST', url, payload: {} })
     expect(response.statusCode).toBe(302)
     expect(response.headers.location).toMatch(/^\/auth\/login/)
   }
+})
+
+async function startAttributes () {
+  await start()
+  await submit(locationPath, { locationType: 'grid', gridReference: 'SK1481' })
+  return visit(attributesPath)
+}
+
+const attributeValues = ['land-cover', 'land-use', 'ownership', 'soils', 'protected-areas', 'hydrology', 'topography']
+const attributeLabels = ['Land cover', 'Land use', 'Ownership', 'Soils', 'Protected areas', 'Hydrology', 'Topography']
+const descriptionPath = '/report-issue/description'
+
+test('attributes uses enabled GOV.UK checkboxes, prototype wording and a Continue form', async () => {
+  const response = await startAttributes()
+  const $ = load(response.payload)
+  expect(response.statusCode).toBe(200)
+  expect($('h1').text().trim()).toBe('Which attributes are incorrect?')
+  expect($('#attributes-hint').text().trim()).toBe('Select all that apply')
+  expect($('.govuk-checkboxes__label').map((_, el) => $(el).text().trim()).get()).toEqual(attributeLabels)
+  expect($('input[type="checkbox"]:enabled')).toHaveLength(7)
+  expect($('input[type="checkbox"]:checked')).toHaveLength(0)
+  expect($('form').attr('action')).toBe(attributesPath)
+  expect($('form .govuk-button').is(':disabled')).toBe(false)
+  expect($('.govuk-inset-text')).toHaveLength(0)
+  expect($('.govuk-back-link').attr('href')).toBe(locationPath)
+})
+
+test.each([undefined, '', [], 'invalid', ['land-cover', 'invalid'], ['land-cover', 'land-cover'], { value: 'land-cover' }].map(attributes => [attributes]))('rejects invalid attribute selections: %j', async attributes => {
+  await startAttributes()
+  const response = await submit(attributesPath, { attributes })
+  const $ = load(response.payload)
+  expect(response.statusCode).toBe(400)
+  expect($('title').text().trim()).toMatch(/^Error:/)
+  expect($('.govuk-error-summary__title').text().trim()).toBe('There is a problem')
+  expect($('.govuk-error-summary__list a').text()).toBe('Select which attributes are incorrect')
+  expect($('.govuk-error-summary__list a').attr('href')).toBe('#attributes')
+  expect($('#attributes-error').text()).toContain('Select which attributes are incorrect')
+  expect($('fieldset').attr('aria-describedby')).toContain('attributes-error')
+  expect(response.request.yar.get('incorrectAttributes')).toBeNull()
+  if (Array.isArray(attributes) && attributes.includes('land-cover')) {
+    expect($('#attributes').is(':checked')).toBe(true)
+  }
+})
+
+test.each([...attributeValues, attributeValues, ['land-cover', 'soils']].map(attributes => [attributes]))('saves attributes %j and opens the shared description page', async attributes => {
+  await startAttributes()
+  const response = await submit(attributesPath, { attributes })
+  const selected = Array.isArray(attributes) ? attributes : [attributes]
+  expect(response.statusCode).toBe(303)
+  expect(response.headers.location).toBe(descriptionPath)
+  expect(response.request.yar.get('incorrectAttributes')).toEqual(selected)
+  const description = await visit(descriptionPath)
+  const $ = load(description.payload)
+  expect(description.statusCode).toBe(200)
+  expect($('h1').text().trim()).toBe('Enter a description of the issue')
+  expect($('.govuk-character-count').attr('data-module')).toBe('govuk-character-count')
+  expect($('.govuk-character-count').attr('data-maxlength')).toBe('2000')
+  expect($('.govuk-back-link').attr('href')).toBe(attributesPath)
+  const back = load((await visit(attributesPath)).payload)
+  expect(back('input[name="attributes"]:checked').map((_, el) => back(el).val()).get()).toEqual(attributeValues.filter(value => selected.includes(value)))
+})
+
+test('replacing attribute choices clears previous choices; invalid attempts do not replace saved answers', async () => {
+  await startAttributes()
+  await submit(attributesPath, { attributes: attributeValues })
+  const updated = await submit(attributesPath, { attributes: 'soils' })
+  expect(updated.request.yar.get('incorrectAttributes')).toEqual(['soils'])
+  const invalid = await submit(attributesPath, {})
+  expect(invalid.statusCode).toBe(400)
+  expect(load(invalid.payload)('input:checked')).toHaveLength(0)
+  expect(invalid.request.yar.get('incorrectAttributes')).toEqual(['soils'])
+})
+
+test('guards attributes GET and valid or invalid POSTs when earlier steps are incomplete', async () => {
+  const home = await visit('/')
+  const crumb = load(home.payload)('input[name="crumb"]').val()
+  const check = async expected => {
+    expect((await visit(attributesPath)).headers.location).toBe(expected)
+    for (const fields of [{}, { attributes: 'land-cover' }]) {
+      expect((await visit(attributesPath, { crumb, ...fields })).headers.location).toBe(expected)
+    }
+    expect((await visit(descriptionPath)).headers.location).toBe(expected)
+  }
+  await check('/')
+  await start(false)
+  await check(datasetPath)
+  await submit(datasetPath, { dataset: 'land-model' })
+  await check(locationPath)
+  await submit(locationPath, { locationType: 'grid', gridReference: 'SK1481' })
+  expect((await visit(descriptionPath)).headers.location).toBe(attributesPath)
+})
+
+test('switching to technical prevents saved data answers from bypassing its question', async () => {
+  await startAttributes()
+  await submit(attributesPath, { attributes: 'land-cover' })
+  await submit('/', { issueType: 'technical' })
+  expect((await visit(descriptionPath)).headers.location).toBe('/report-issue/technical')
+  const home = await visit('/')
+  const crumb = load(home.payload)('input[name="crumb"]').val()
+  expect((await visit(attributesPath, { crumb, attributes: 'soils' })).headers.location).toBe('/')
 })

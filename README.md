@@ -230,8 +230,14 @@ requires a location method and non-blank text for its selected input. Only that
 input is saved, trimmed, in the Yar session as `issueLocation`; changing the method
 clears the previous input. Back restores the saved answers. Grid cell and feature
 references are required text for now; no catalogue or geographic lookup is performed.
-A valid location continues to `/report-issue/data/attributes`, a disabled placeholder
-for **Which attributes are incorrect?**. No report is submitted.
+A valid location continues to `/report-issue/data/attributes` for **Which attributes
+are incorrect?**. The GOV.UK checkboxes offer Land cover, Land use, Ownership,
+Soils, Protected areas, Hydrology and Topography with **Select all that apply**.
+Continue requires at least one selection; empty or invalid submissions show
+**Select which attributes are incorrect** in the error summary and inline error.
+Selections are saved as `incorrectAttributes` in the Yar session and restored on
+Back. Updating them replaces the previous choices. A valid selection redirects
+to `/report-issue/description`, shared with the Technical issue workflow.
 
 The Technical issue page is active at `/report-issue/technical`. Its GOV.UK radios reveal the **Enter what
 the issue relates to** input when Other is selected. Continue requires a radio
@@ -239,9 +245,15 @@ selection and, for Other, non-blank text. Errors use the prototype's exact messa
 a GOV.UK error summary, inline errors and an `Error:` page-title prefix.
 
 A valid technical selection is stored in the Yar session as `technicalArea` and
-`technicalOther` and redirects to `/report-issue/technical/description`. Other
+`technicalOther` and redirects to `/report-issue/description`. Other
 text is trimmed and cleared when a listed option is selected. Back links restore
-the saved selection and text. The description page uses the **GOV.UK Character
+the saved selection and text.
+
+Both branches use one description controller and template at
+`/report-issue/description`. Its Back link returns to the attributes page for a data
+issue or the technical question for a technical issue. Missing prerequisite answers
+redirect to the appropriate earlier step. The previous technical description URL
+redirects to this shared URL. The description page uses the **GOV.UK Character
 Count component**, including its supplied JavaScript, for the prototype's
 2,000-character counter and hint. No custom character-counting JavaScript is used.
 Its onward Continue button remains disabled until the following step is implemented;

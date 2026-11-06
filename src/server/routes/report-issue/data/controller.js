@@ -109,11 +109,65 @@ export const locationPostController = {
   }
 }
 
+const attributesQuestion = 'Which attributes are incorrect?'
+const attributesMessage = 'Select which attributes are incorrect'
+const attributeOptions = [
+  { value: 'land-cover', text: 'Land cover' },
+  { value: 'land-use', text: 'Land use' },
+  { value: 'ownership', text: 'Ownership' },
+  { value: 'soils', text: 'Soils' },
+  { value: 'protected-areas', text: 'Protected areas' },
+  { value: 'hydrology', text: 'Hydrology' },
+  { value: 'topography', text: 'Topography' }
+]
+const attributesSchema = Joi.array().items(Joi.string().valid(...attributeOptions.map(({ value }) => value)))
+  .min(1).unique().single().required()
+
+function attributesModel (attributes, invalid = false) {
+  const values = Array.isArray(attributes) ? attributes : [attributes]
+  return {
+    ...errors(attributesQuestion, invalid ? [{ text: attributesMessage, href: '#attributes' }] : []),
+    attributeOptions,
+    attributes: values.filter(value => attributeOptions.some(option => option.value === value)),
+    attributesError: invalid ? { text: attributesMessage } : undefined
+  }
+}
+
+export function getAttributesRedirect (request) {
+  return guard(request) || (locationSchema.validate(request.yar.get('issueLocation') ?? {}).error
+    ? '/report-issue/data/location'
+    : undefined)
+}
+
+export function getDataDescriptionRedirect (request) {
+  return getAttributesRedirect(request) || (attributesSchema.validate(request.yar.get('incorrectAttributes')).error
+    ? '/report-issue/data/attributes'
+    : undefined)
+}
+
 export const attributesController = {
   handler (request, h) {
-    const redirect = guard(request)
+    const redirect = getAttributesRedirect(request)
     if (redirect) return h.redirect(redirect).code(303)
-    if (locationSchema.validate(request.yar.get('issueLocation') ?? {}).error) return h.redirect('/report-issue/data/location').code(303)
-    return h.view('report-issue/data/attributes', { pageTitle: 'Which attributes are incorrect?' })
+    return h.view('report-issue/data/attributes', attributesModel(request.yar.get('incorrectAttributes')))
+  }
+}
+
+export const attributesPostController = {
+  options: {
+    validate: {
+      payload: Joi.object({ attributes: attributesSchema }).options({ stripUnknown: true }),
+      failAction (request, h) {
+        const redirect = getAttributesRedirect(request)
+        if (redirect) return h.redirect(redirect).code(303).takeover()
+        return h.view('report-issue/data/attributes', attributesModel(request.payload.attributes, true)).code(400).takeover()
+      }
+    }
+  },
+  handler (request, h) {
+    const redirect = getAttributesRedirect(request)
+    if (redirect) return h.redirect(redirect).code(303)
+    request.yar.set('incorrectAttributes', request.payload.attributes)
+    return h.redirect('/report-issue/description').code(303)
   }
 }

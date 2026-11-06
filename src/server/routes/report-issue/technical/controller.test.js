@@ -5,7 +5,7 @@ import { mockAuthCredentials } from '#/server/common/test-helpers/auth.js'
 let server
 let cookies
 const path = '/report-issue/technical'
-const descriptionPath = `${path}/description`
+const descriptionPath = '/report-issue/description'
 
 beforeAll(async () => {
   server = await createServer()
@@ -156,4 +156,12 @@ test('keeps CSRF protection and authentication on technical submissions', async 
   const anonymous = await server.inject({ method: 'POST', url: path, payload: { technicalArea: 'map-viewer' } })
   expect(anonymous.statusCode).toBe(302)
   expect(anonymous.headers.location).toMatch(/^\/auth\/login/)
+})
+
+test('the previous technical description URL redirects to the shared page', async () => {
+  await start()
+  await submit({ technicalArea: 'map-viewer' })
+  const response = await visit(`${path}/description`)
+  expect(response.statusCode).toBe(303)
+  expect(response.headers.location).toBe(descriptionPath)
 })
