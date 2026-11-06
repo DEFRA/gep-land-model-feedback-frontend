@@ -10,6 +10,7 @@ import { buildViewModel } from './view-model.js'
 import { checkEvidenceUpload, uploadProblem, evidencePath, completePath, evidenceReturnPath } from './upload-session.js'
 
 const EVIDENCE_UPLOAD_KEY = 'evidenceUpload'
+const REVIEW_RETURN_TO = 'check-your-answers'
 
 export const evidenceController = {
   async handler (request, h) {
@@ -28,13 +29,13 @@ export const evidenceController = {
       const redirectUrl = config.get('isProduction') ? redirectPath : `${config.get('appBaseUrl').replace(/\/$/, '')}${redirectPath}`
       try {
         const id = await initiateUpload(redirectUrl, token)
-        active = { id, token, changing: request.query.returnTo === 'check-your-answers' }
+        active = { id, token, changing: request.query.returnTo === REVIEW_RETURN_TO }
         request.yar.set(EVIDENCE_UPLOAD_KEY, active)
       } catch {
         return uploadProblem(request, h)
       }
     } else {
-      active.changing = request.query.returnTo === 'check-your-answers'
+      active.changing = request.query.returnTo === REVIEW_RETURN_TO
       request.yar.set(EVIDENCE_UPLOAD_KEY, active)
     }
     const errors = request.yar.flash('evidenceErrors').flat()
@@ -91,6 +92,6 @@ export const removeEvidenceController = {
       return h.redirect(redirect).code(statusCodes.seeOther)
     }
     request.yar.set('evidenceFiles', getEvidenceFiles(request).filter(file => file.fileId !== request.params.fileId))
-    return h.redirect(request.query.returnTo === 'check-your-answers' ? `${evidencePath}?returnTo=check-your-answers` : evidencePath).code(statusCodes.seeOther)
+    return h.redirect(request.query.returnTo === REVIEW_RETURN_TO ? `${evidencePath}?returnTo=check-your-answers` : evidencePath).code(statusCodes.seeOther)
   }
 }

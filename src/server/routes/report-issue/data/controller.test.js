@@ -122,7 +122,7 @@ test.each([
 test.each([
   ['grid', 'gridReference', 'grid-reference', 'Enter the grid cell reference in British National Grid format', [
     'S', 'ZZ', 'SI', 'SK1', 'SK123', 'SK12345', 'SK123456789012', 'ZZ1481', 'SI1481',
-    'SK 1 45', 'SK 12 345', 'SK 148 81', 'SK 1234 567', 'SK 12345 6789', 'SK 123456 123456', '1481', 'SK14.81', 'SK-1481', 'SK1481 extra'
+    'SK 1 45', 'SK 12 345', 'SK 148 81', 'SK 1234 567', 'SK 12345 6789', 'SK 123456 123456', '1481', 'SK14.81', 'SK-1481', 'SK1481 extra', 'SK 12 34 56', 'SK ab cd', 'SK 12 a4'
   ]],
   ['feature', 'featureReference', 'feature-reference', 'Enter the feature reference in OSID format', [
     '123456', 'osgb1000000000000001', '1e2f9011ece7406880ec27e837259cf8',

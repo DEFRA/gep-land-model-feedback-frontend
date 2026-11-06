@@ -3,6 +3,7 @@ import { statusCodes, MIN_HTTP_STATUS, MAX_HTTP_STATUS } from '../../constants/s
 
 import { loggerOptions } from './logger-options.js'
 
+const EXTERNAL_CALL_FAILED_MESSAGE = 'External API call failed'
 const EXTERNAL_CALL_COMPLETED_MESSAGE = 'External API call completed'
 
 const logger = pino(loggerOptions)
@@ -39,7 +40,7 @@ async function logExternalCall (service, operation, call) {
       statusCode,
       outcome: failed ? 'failure' : 'success'
     }
-    logger.info(summary, failed ? 'External API call failed' : EXTERNAL_CALL_COMPLETED_MESSAGE)
+    logger.info(summary, failed ? EXTERNAL_CALL_FAILED_MESSAGE : EXTERNAL_CALL_COMPLETED_MESSAGE)
     logger.debug(summary, EXTERNAL_CALL_COMPLETED_MESSAGE)
     return result
   } catch (error) {
@@ -50,8 +51,8 @@ async function logExternalCall (service, operation, call) {
       statusCode: statusCodeOf(error),
       outcome: 'failure'
     }
-    logger.info(summary, 'External API call failed')
-    logger.debug(summary, 'External API call failed')
+    logger.info(summary, EXTERNAL_CALL_FAILED_MESSAGE)
+    logger.debug(summary, EXTERNAL_CALL_FAILED_MESSAGE)
     throw error
   }
 }

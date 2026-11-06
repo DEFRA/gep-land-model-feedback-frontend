@@ -5,7 +5,9 @@ import { locationOptions, attributeOptions } from './constants.js'
 const GRID_PREFIX_LENGTH = 2
 
 const locationQuestion = 'Enter the location of the issue'
-const gridReferencePattern = /^[HNOTS][A-HJ-Z](?:\s*(?:\d{2}){1,5}|\s*\d{1,5}\s+\d{1,5})?$/i
+const gridReferencePattern = /^[HNOTS][A-HJ-Z]/i
+const compactCoordinatesPattern = /^(?:\d{2}){1,5}$/
+const coordinatePattern = /^\d{1,5}$/
 const featureReferencePattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 function referenceSchema (pattern, missing, invalid) {
   return Joi.string().trim().pattern(pattern).required().messages({
@@ -46,8 +48,15 @@ export const datasetSchema = Joi.object({
 export const attributesPayloadSchema = Joi.object({ attributes: attributesSchema }).options({ stripUnknown: true })
 
 function validateGridPrecision (value, helpers) {
-  const [easting, northing] = value.slice(GRID_PREFIX_LENGTH).trim().split(/\s+/)
-  if (northing && easting.length !== northing.length) {
+  const coordinates = value.slice(GRID_PREFIX_LENGTH).trim()
+  if (!coordinates) {
+    return value
+  }
+  const [easting, northing, ...extra] = coordinates.split(/\s+/)
+  if (northing === undefined) {
+    return compactCoordinatesPattern.test(easting) ? value : helpers.error('string.pattern.base')
+  }
+  if (extra.length || easting.length !== northing.length || !coordinatePattern.test(easting) || !coordinatePattern.test(northing)) {
     return helpers.error('string.pattern.base')
   }
   return value
