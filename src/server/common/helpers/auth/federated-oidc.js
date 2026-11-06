@@ -47,7 +47,7 @@ function scheme (_server, options) {
           const redirectTo = await preLogin(request, oidcConfig, options)
           return h.redirect(redirectTo).takeover()
         } catch (e) {
-          logger.error('OIDC pre-login failed')
+          logger.error({ oidcError: oidcErrorDetails(e) }, 'OIDC pre-login failed')
           return Boom.unauthorized(e.message)
         }
       } else {
@@ -55,11 +55,27 @@ function scheme (_server, options) {
           const credentials = await postLogin(request, oidcConfig, options)
           return h.authenticated({ credentials })
         } catch (e) {
-          logger.error('OIDC post-login failed')
+          logger.error({ oidcError: oidcErrorDetails(e) }, 'OIDC post-login failed')
           return Boom.unauthorized(e.message)
         }
       }
     }
+  }
+}
+
+function oidcErrorDetails (error) {
+  const cause = error?.cause
+  // Select diagnostic fields instead of logging tokens, requests or entire causes.
+  return {
+    name: error?.name,
+    message: error?.message,
+    code: error?.code,
+    statusCode: error?.status ?? error?.response?.status,
+    oauthError: error?.error ?? cause?.error,
+    oauthDescription: error?.error_description ?? cause?.error_description,
+    causeCode: cause?.code,
+    correlationId: cause?.correlation_id,
+    traceId: cause?.trace_id
   }
 }
 
@@ -82,7 +98,7 @@ async function preLogin (request, oidcConfig, options) {
   }
 
   if (!oidcConfig.serverMetadata().supportsPKCE()) {
-    logger.debug("server doesn't support PKCE")
+    logger.debug('OIDC metadata does not advertise S256 PKCE; adding a nonce')
     nonce = openid.randomNonce()
     parameters.nonce = nonce
   }

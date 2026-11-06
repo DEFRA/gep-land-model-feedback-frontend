@@ -1,10 +1,35 @@
 import Hapi from '@hapi/hapi'
 import hapiPino from 'hapi-pino'
+import { pino } from 'pino'
 
 const settings = vi.hoisted(() => ({ format: 'ecs' }))
 vi.mock('#/config/config.js', () => ({
   config: { get: key => ({ log: { enabled: true, level: 'debug', format: settings.format, redact: [] }, serviceName: 'privacy-test', serviceVersion: '1' })[key] }
 }))
+
+test.each(['ecs', 'pino-pretty'])('%s preserves selected OIDC diagnostics through the error hook', async format => {
+  settings.format = format
+  vi.resetModules()
+  const { loggerOptions } = await import('./logger-options.js')
+  const output = []
+  const logger = pino({ ...loggerOptions, transport: undefined }, { write: line => output.push(line) })
+  const oidcError = {
+    name: 'ResponseBodyError',
+    code: 'OAUTH_RESPONSE_BODY_ERROR',
+    message: 'Token endpoint rejected the client',
+    statusCode: 400,
+    oauthError: 'invalid_client',
+    oauthDescription: 'No matching federated credential',
+    correlationId: 'correlation-id',
+    traceId: 'trace-id'
+  }
+
+  logger.error({ oidcError }, 'OIDC post-login failed')
+
+  const entry = JSON.parse(output[0])
+  expect(entry.oidcError).toEqual(oidcError)
+  expect(entry.message ?? entry.msg).toBe('OIDC post-login failed')
+})
 
 test.each(['ecs', 'pino-pretty'])('%s request logs omit credentials, form data and raw errors', async format => {
   settings.format = format
