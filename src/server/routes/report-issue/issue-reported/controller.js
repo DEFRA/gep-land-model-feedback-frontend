@@ -6,6 +6,10 @@ import { buildSummaryRows } from '../check-your-answers/view-model.js'
 import { getOrCreateReceipt } from './receipt.js'
 import { sendIssueEmail } from './email.js'
 
+function isSubmissionComplete (report) {
+  return report?.notification && (!report.answers.submitterEmail || report.notification.submitterCopy)
+}
+
 export const submitIssueController = {
   async handler (request, h) {
     const redirect = getEvidenceRedirect(request)
@@ -19,13 +23,27 @@ export const submitIssueController = {
     const answers = getIssueAnswers(request)
     const report = getOrCreateReceipt(answers, request.yar.get('reportedIssue'))
     request.yar.set('reportedIssue', report)
-    if (!report.notification) {
+    if (!isSubmissionComplete(report)) {
+      let failureStage = 'session'
+      const persistReport = async () => {
+        failureStage = 'session'
+        request.yar.set('reportedIssue', report)
+        await request.yar.commit(h)
+        failureStage = 'email'
+      }
       try {
-        report.notification = await sendIssueEmail(report, buildSummaryRows(report.answers), request.logger)
+        await persistReport()
+        report.notification = await sendIssueEmail(report, buildSummaryRows(report.answers), request.logger, persistReport)
         request.yar.set('reportedIssue', report)
       } catch {
-        request.logger.error({ reference: report.reference }, 'Unable to submit issue email')
-        return h.view('report-issue/issue-reported/problem', { pageTitle: 'There is a problem submitting your issue', reference: report.reference }).code(statusCodes.serviceUnavailable)
+        request.yar.set('reportedIssue', report)
+        const supportEmailAccepted = Boolean(report.notification)
+        request.logger.error({ reference: report.reference, failureStage, supportEmailAccepted, submitterCopyAccepted: Boolean(report.notification?.submitterCopy) }, 'Unable to complete issue submission')
+        return h.view('report-issue/issue-reported/problem', {
+          pageTitle: supportEmailAccepted ? 'There is a problem sending your confirmation email' : 'There is a problem submitting your issue',
+          reference: report.reference,
+          supportEmailAccepted
+        }).code(statusCodes.serviceUnavailable)
       }
     }
     return h.redirect('/report-issue/issue-reported').code(statusCodes.seeOther)
@@ -35,7 +53,7 @@ export const submitIssueController = {
 export const issueReportedController = {
   handler (request, h) {
     const reportedIssue = request.yar.get('reportedIssue')
-    if (!reportedIssue?.notification) {
+    if (!isSubmissionComplete(reportedIssue)) {
       return h.redirect('/report-issue/check-your-answers').code(statusCodes.seeOther)
     }
     return h.view('report-issue/issue-reported/index', {

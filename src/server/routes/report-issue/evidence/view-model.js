@@ -16,6 +16,7 @@ export function buildViewModel (request, active, errors) {
     action: uploadUrl(active.id),
     files,
     maxFileSizeMB: config.get('uploader.maxFileSizeMB'),
+    excludedFileExtensions: config.get('uploader.excludedFileExtensions').join(', '),
     allowedMimeTypes: config.get('uploader.allowedMimeTypes').join(', '),
     fileError: errors.length ? { text: errors.join('. ') } : undefined
   }

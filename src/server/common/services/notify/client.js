@@ -43,33 +43,32 @@ function retryDelay (error, attempt) {
 
 /**
  * Send an email through Notify, retrying only temporary failures.
- * @param {{recipient: string, reference: string, personalisation: object}} message
+ * @param {{recipient: string, reference: string, personalisation: object, recipientType?: 'support' | 'submitter'}} message
  * @param {import('pino').Logger} logger
  * @returns {Promise<{id: string, recipient: string}>}
  */
-export async function sendEmail ({ recipient, reference, personalisation }, logger) {
+export async function sendEmail ({ recipient, reference, personalisation, recipientType = 'support' }, logger) {
   const settings = config.get('notify')
-  if (!settings.apiKey || !settings.templateId || !recipient) {
-    throw new Error('Issue email is not configured')
-  }
-  const client = new NotifyClient(settings.apiKey)
-  client.setClient(axios.create({ timeout: REQUEST_TIMEOUT_MS }))
+  const audience = recipientType === 'submitter' ? 'submitter' : 'support'
+  const context = { reference, recipientType: audience }
+  const operation = audience === 'submitter' ? 'send submitter copy' : 'send support email'
+  const client = createNotifyClient(settings, recipient, context, logger)
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
-      const response = await logExternalCall('GOV.UK Notify', 'sendEmail', () => client.sendEmail(settings.templateId, recipient, {
+      const response = await logExternalCall('GOV.UK Notify', operation, () => client.sendEmail(settings.templateId, recipient, {
         personalisation,
         reference
       }))
       if (!response.data?.id) {
         throw new Error('Invalid Notify response')
       }
-      logger.info({ reference, attempt }, 'Issue email accepted by GOV.UK Notify')
+      logger.info({ ...context, attempt, notificationId: response.data.id }, 'Issue email accepted by GOV.UK Notify')
       return { id: response.data.id, recipient }
     } catch (error) {
       const wait = retryDelay(error, attempt)
       const retrying = attempt < MAX_ATTEMPTS && wait !== null
       // SDK errors can include API keys, recipient addresses and submitted answers.
-      logger.warn({ reference, attempt, statusCode: error.response?.status, retrying }, 'Issue email request failed')
+      logger.warn({ ...context, attempt, statusCode: error.response?.status, retrying, retryDelayMs: retrying ? wait : undefined }, 'Issue email request failed')
       if (!retrying) {
         throw new Error('Issue email could not be sent')
       }
@@ -77,4 +76,14 @@ export async function sendEmail ({ recipient, reference, personalisation }, logg
     }
   }
   throw new Error('Issue email could not be sent')
+}
+
+function createNotifyClient (settings, recipient, context, logger) {
+  if (!settings.apiKey || !settings.templateId || !recipient) {
+    logger.warn({ ...context, failureReason: 'configuration' }, 'Issue email is not configured')
+    throw new Error('Issue email is not configured')
+  }
+  const client = new NotifyClient(settings.apiKey)
+  client.setClient(axios.create({ timeout: REQUEST_TIMEOUT_MS }))
+  return client
 }

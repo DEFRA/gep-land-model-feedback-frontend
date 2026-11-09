@@ -7,6 +7,7 @@ import { asExternalUrl } from '../url/url-helpers.js'
 import { getSafeRedirect } from '../get-safe-redirect.js'
 
 const logger = createLogger()
+const SIGN_IN_FAILURE_MESSAGE = 'Unable to sign in. Try again.'
 const callbackPath = '/auth/callback'
 const authPathPrefix = '/auth/'
 const schemeName = 'federated-oidc'
@@ -35,10 +36,16 @@ function scheme (_server, options) {
     authenticate: async function (request, h) {
       if (request.query.error) {
         logger.error('OIDC authorization error')
-        return Boom.unauthorized(request.query.error)
+        return Boom.unauthorized(SIGN_IN_FAILURE_MESSAGE)
       }
 
-      const oidcConfig = await request.server.oidc.getConfig()
+      let oidcConfig
+      try {
+        oidcConfig = await request.server.oidc.getConfig()
+      } catch (error) {
+        logOidcFailure(error, 'OIDC discovery failed')
+        return Boom.unauthorized(SIGN_IN_FAILURE_MESSAGE)
+      }
 
       const isPreLogin = !request.query.code
 
@@ -48,7 +55,7 @@ function scheme (_server, options) {
           return h.redirect(redirectTo).takeover()
         } catch (e) {
           logOidcFailure(e, 'OIDC pre-login failed')
-          return Boom.unauthorized(e.message)
+          return Boom.unauthorized(SIGN_IN_FAILURE_MESSAGE)
         }
       } else {
         try {
@@ -56,7 +63,7 @@ function scheme (_server, options) {
           return h.authenticated({ credentials })
         } catch (e) {
           logOidcFailure(e, 'OIDC post-login failed')
-          return Boom.unauthorized(e.message)
+          return Boom.unauthorized(SIGN_IN_FAILURE_MESSAGE)
         }
       }
     }

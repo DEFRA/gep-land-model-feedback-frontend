@@ -4,10 +4,11 @@ test('reads internal/public uploader endpoints, bucket and size limit from the e
   vi.stubEnv('CDP_UPLOADER_PUBLIC_URL', 'https://uploads.example.com')
   vi.stubEnv('EVIDENCE_S3_BUCKET', 'service-evidence')
   vi.stubEnv('EVIDENCE_MAX_FILE_SIZE_MB', '2.51')
+  vi.stubEnv('EVIDENCE_EXCLUDED_FILE_EXTENSIONS', 'exe, .BAT, .exe')
   vi.stubEnv('EVIDENCE_ALLOWED_MIME_TYPES', 'application/pdf, IMAGE/JPEG ,image/png')
   vi.resetModules()
   const { config } = await import('./config.js')
-  expect(config.get('uploader')).toEqual({ apiUrl: 'http://uploader.internal', publicUrl: 'https://uploads.example.com', bucket: 'service-evidence', maxFileSizeMB: 2.51, allowedMimeTypes: ['application/pdf', 'image/jpeg', 'image/png'] })
+  expect(config.get('uploader')).toEqual({ apiUrl: 'http://uploader.internal', publicUrl: 'https://uploads.example.com', bucket: 'service-evidence', maxFileSizeMB: 2.51, excludedFileExtensions: ['.exe', '.bat'], allowedMimeTypes: ['application/pdf', 'image/jpeg', 'image/png'] })
 })
 test('production uses a same-origin public upload route by default', async () => {
   vi.stubEnv('NODE_ENV', 'production')
@@ -37,4 +38,21 @@ test.each(['.pdf', 'image/*', 'application/pdf,', 'pdf', 'application/pdf; chars
   vi.stubEnv('EVIDENCE_ALLOWED_MIME_TYPES', value)
   vi.resetModules()
   await expect(import('./config.js')).rejects.toThrow('uploader.allowedMimeTypes')
+})
+
+test.each(['', '   '])('an empty extension exclusion list disables exclusions: %j', async value => {
+  vi.stubEnv('EVIDENCE_EXCLUDED_FILE_EXTENSIONS', value)
+  const { config } = await import('./config.js')
+  expect(config.get('uploader.excludedFileExtensions')).toEqual([])
+})
+
+test.each(['exe,', '*', 'application/pdf', '../exe', '.exe;bad', '..exe'])('rejects invalid file extension exclusions: %s', async value => {
+  vi.stubEnv('EVIDENCE_EXCLUDED_FILE_EXTENSIONS', value)
+  await expect(import('./config.js')).rejects.toThrow('uploader.excludedFileExtensions')
+})
+
+test('blocks executable, script and macro-enabled extensions by default', async () => {
+  vi.stubEnv('EVIDENCE_EXCLUDED_FILE_EXTENSIONS', undefined)
+  const { config } = await import('./config.js')
+  expect(config.get('uploader.excludedFileExtensions')).toEqual(expect.arrayContaining(['.exe', '.bat', '.ps1', '.js', '.docm', '.xlsm']))
 })

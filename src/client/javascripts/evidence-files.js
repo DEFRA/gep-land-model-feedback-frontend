@@ -1,3 +1,5 @@
+import { fileExclusionValidator } from './file-exclusion-validation.js'
+
 /** Clear pending files and make Continue upload only when files are selected. */
 export function initEvidenceFiles (navigate = url => window.location.assign(url)) {
   for (const link of document.querySelectorAll('[data-clear-files]')) {
@@ -7,7 +9,11 @@ export function initEvidenceFiles (navigate = url => window.location.assign(url)
     if (input?.type !== 'file') {
       continue
     }
-    const updateVisibility = () => link.classList.toggle('govuk-!-display-none', input.files.length === 0)
+    const validateFiles = fileExclusionValidator(form, input)
+    const updateVisibility = () => {
+      link.classList.toggle('govuk-!-display-none', input.files.length === 0)
+      validateFiles()
+    }
     input.addEventListener('change', updateVisibility)
     link.addEventListener('click', event => {
       event.preventDefault()
@@ -16,6 +22,10 @@ export function initEvidenceFiles (navigate = url => window.location.assign(url)
     })
     if (form.dataset.evidenceContinue) {
       form.addEventListener('submit', event => {
+        if (!validateFiles(true)) {
+          event.preventDefault()
+          return
+        }
         if (input.files.length === 0) {
           event.preventDefault()
           navigate(form.dataset.evidenceContinue)

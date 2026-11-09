@@ -402,6 +402,12 @@ export const config = convict({
       default: 100,
       env: 'EVIDENCE_MAX_FILE_SIZE_MB'
     },
+    excludedFileExtensions: {
+      doc: 'Comma-separated filename extensions excluded from evidence uploads',
+      format: 'file-extension-list',
+      default: '.exe,.com,.bat,.cmd,.msi,.msp,.scr,.pif,.cpl,.dll,.ps1,.psm1,.vbs,.vbe,.js,.jse,.wsf,.wsh,.hta,.jar,.sh,.bash,.lnk,.reg,.docm,.dotm,.xlsm,.xltm,.xlam,.pptm,.potm,.ppam,.ppsm,.sldm'.split(','),
+      env: 'EVIDENCE_EXCLUDED_FILE_EXTENSIONS'
+    },
     allowedMimeTypes: {
       doc: 'Comma-separated allowed evidence MIME types; empty allows all types',
       format: 'mime-type-list',

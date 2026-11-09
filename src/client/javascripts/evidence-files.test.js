@@ -111,3 +111,84 @@ test('clearing selected files makes Continue skip uploading', () => {
   expect(event.defaultPrevented).toBe(true)
   expect(navigate).toHaveBeenCalledExactlyOnceWith('/report-issue/check-your-answers')
 })
+
+function addExclusionValidation () {
+  const form = document.querySelector('form')
+  form.dataset.excludedFileExtensions = '.exe, .bat'
+  form.insertAdjacentHTML('beforebegin', '<div data-file-exclusion-summary class="govuk-error-summary" hidden tabindex="-1"><div class="govuk-error-summary__body"></div></div>')
+  const wrapper = document.querySelector('[data-module="govuk-file-upload"]')
+  wrapper.classList.add('govuk-form-group')
+  wrapper.insertAdjacentHTML('afterbegin', '<p data-file-exclusion-error id="exclusion-error" hidden><span data-file-exclusion-message></span></p>')
+  const input = form.elements.namedItem('evidenceFiles')
+  input.setAttribute('aria-describedby', 'original-hint')
+  return { form, input, wrapper }
+}
+
+function chooseFiles (input, names) {
+  Object.defineProperty(input, 'files', { value: names.map(name => new File(['content'], name)), configurable: true })
+  input.dispatchEvent(new Event('change', { bubbles: true }))
+}
+
+test('blocks a mixed selection, displays safe validation messages and focuses the error summary', () => {
+  const { form, input, wrapper } = addExclusionValidation()
+  const navigate = vi.fn()
+  initEvidenceFiles(navigate)
+  chooseFiles(input, ['evidence.pdf', '<img src=x onerror=alert(1)>.EXE'])
+  const event = new Event('submit', { bubbles: true, cancelable: true })
+  form.dispatchEvent(event)
+  expect(event.defaultPrevented).toBe(true)
+  expect(navigate).not.toHaveBeenCalled()
+  const summary = document.querySelector('[data-file-exclusion-summary]')
+  expect(summary.hidden).toBe(false)
+  expect(document.activeElement).toBe(summary)
+  expect(summary.querySelector('a').textContent).toContain('<img src=x onerror=alert(1)>.EXE: This file type is not allowed')
+  expect(summary.querySelector('img')).toBeNull()
+  expect(input.getAttribute('aria-invalid')).toBe('true')
+  expect(input.getAttribute('aria-describedby')).toBe('original-hint exclusion-error')
+  expect(wrapper.classList.contains('govuk-form-group--error')).toBe(true)
+})
+
+test('allows a corrected selection and restores existing accessibility attributes', () => {
+  const { form, input, wrapper } = addExclusionValidation()
+  initEvidenceFiles()
+  chooseFiles(input, ['blocked.exe'])
+  chooseFiles(input, ['evidence.pdf'])
+  const event = new Event('submit', { bubbles: true, cancelable: true })
+  form.dispatchEvent(event)
+  expect(event.defaultPrevented).toBe(false)
+  expect(document.querySelector('[data-file-exclusion-summary]').hidden).toBe(true)
+  expect(document.querySelector('[data-file-exclusion-error]').hidden).toBe(true)
+  expect(input.getAttribute('aria-describedby')).toBe('original-hint')
+  expect(input.hasAttribute('aria-invalid')).toBe(false)
+  expect(wrapper.classList.contains('govuk-form-group--error')).toBe(false)
+})
+
+test('validates the real GOV.UK enhanced file input and describes the error on its visible button', () => {
+  const { form, input } = addExclusionValidation()
+  document.body.classList.add('govuk-frontend-supported')
+  try {
+    const component = new FileUpload(document.querySelector('[data-module="govuk-file-upload"]'))
+    expect(component.$input).toBe(input)
+    initEvidenceFiles()
+    chooseFiles(input, ['blocked.BAT'])
+    const event = new Event('submit', { bubbles: true, cancelable: true })
+    form.dispatchEvent(event)
+    expect(event.defaultPrevented).toBe(true)
+    const button = form.querySelector('.govuk-file-upload-button')
+    expect(button.getAttribute('aria-invalid')).toBe('true')
+    expect(button.getAttribute('aria-describedby')).toContain('exclusion-error')
+    expect(document.querySelector('[data-file-exclusion-summary] a').getAttribute('href')).toBe(`#${button.id}`)
+  } finally {
+    document.body.classList.remove('govuk-frontend-supported')
+  }
+})
+
+test('allows excluded filenames when the exclusion list is explicitly empty', () => {
+  const { form, input } = addExclusionValidation()
+  form.dataset.excludedFileExtensions = ''
+  initEvidenceFiles()
+  chooseFiles(input, ['program.exe'])
+  const event = new Event('submit', { bubbles: true, cancelable: true })
+  form.dispatchEvent(event)
+  expect(event.defaultPrevented).toBe(false)
+})

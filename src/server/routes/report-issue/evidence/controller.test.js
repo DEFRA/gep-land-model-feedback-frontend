@@ -1,5 +1,5 @@
 import { createJourneyClient } from '#/server/common/test-helpers/journey-client.js'
-vi.mock('#/server/routes/report-issue/issue-reported/email.js', () => ({ sendIssueEmail: vi.fn(async () => ({ id: 'notify-id', recipient: 'atlas-support@example.com' })) }))
+vi.mock('#/server/routes/report-issue/issue-reported/email.js', () => ({ sendIssueEmail: vi.fn(async () => ({ id: 'notify-id', submitterCopy: { id: 'copy-id', recipient: 'reporter@example.com' }, recipient: 'atlas-support@example.com' })) }))
 import { load } from 'cheerio'
 import { createServer } from '#/server/server.js'
 import { config } from '#/config/config.js'
@@ -17,12 +17,13 @@ const fileId = '22222222-2222-4222-8222-222222222222'
 const secondId = '33333333-3333-4333-8333-333333333333'
 const clean = (fileIdValue = fileId, filename = 'evidence.txt') => ({ fileId: fileIdValue, filename, fileStatus: 'complete', contentLength: 20, s3Bucket: config.get('uploader.bucket'), s3Key: `evidence/${id}/${fileIdValue}`, contentType: 'text/plain' })
 const ready = files => ({ uploadStatus: 'ready', form: files === undefined ? {} : { evidenceFiles: files }, numberOfRejectedFiles: (Array.isArray(files) ? files : [files]).filter(file => file?.hasError || file?.fileStatus === 'rejected').length })
-const originalRestrictions = { size: config.get('uploader.maxFileSizeMB'), types: config.get('uploader.allowedMimeTypes') }
+const originalRestrictions = { size: config.get('uploader.maxFileSizeMB'), types: config.get('uploader.allowedMimeTypes'), exclusions: config.get('uploader.excludedFileExtensions') }
 beforeAll(async () => { server = await createServer(); await server.initialize() })
 afterAll(async () => server.stop({ timeout: 0 }))
 afterEach(() => {
   config.set('uploader.maxFileSizeMB', originalRestrictions.size)
   config.set('uploader.allowedMimeTypes', originalRestrictions.types)
+  config.set('uploader.excludedFileExtensions', originalRestrictions.exclusions)
 })
 beforeEach(() => {
   client = createJourneyClient(server)
@@ -98,9 +99,9 @@ test('does not restrict the file picker when the MIME allowlist is empty', async
   expect($('#evidence-files-hint').text()).not.toContain('Allowed file types:')
 })
 
-test.each(['The selected file is too large', 'The selected file type is not supported'])('displays uploader restriction errors: %s', async errorMessage => {
+test.each([['FILE_TOO_LARGE', 'The selected file must be 100 MB or smaller'], ['FILE_INVALID_TYPE', 'The selected file type is not supported']])('displays safe uploader restriction errors: %s', async (errorCode, errorMessage) => {
   await start()
-  getUploadStatus.mockResolvedValue(ready({ filename: 'evidence.bin', fileStatus: 'rejected', hasError: true, errorMessage }))
+  getUploadStatus.mockResolvedValue(ready({ filename: 'evidence.bin', fileStatus: 'rejected', hasError: true, errorCode, errorMessage: 'private upstream diagnostics' }))
   await complete()
   getUploadStatus.mockResolvedValue({ uploadStatus: 'initiated' })
   const response = await visit(path)
@@ -138,9 +139,9 @@ test('a single-file status is supported and completion replay cannot duplicate t
   expect((await complete()).headers.location).toBe(path)
 })
 
-test('keeps clean files from a mixed batch and displays rejected-file messages as escaped text', async () => {
+test('keeps clean files from a mixed batch and displays only safe rejection messages', async () => {
   await start(true)
-  const rejected = { fileStatus: 'rejected', hasError: true, errorMessage: '<script>Rejected virus</script>' }
+  const rejected = { fileStatus: 'rejected', hasError: true, errorCode: 'FILE_VIRUS', errorMessage: '<script>Rejected virus</script>' }
   getUploadStatus.mockResolvedValue(ready([clean(), rejected]))
   const response = await complete()
   expect(response.headers.location).toBe(`${path}?returnTo=check-your-answers`)
@@ -149,9 +150,9 @@ test('keeps clean files from a mixed batch and displays rejected-file messages a
   const page = await visit(response.headers.location)
   const $ = load(page.payload)
   expect(page.statusCode).toBe(400)
-  expect($('.govuk-error-summary__list a').text()).toBe('<script>Rejected virus</script>')
+  expect($('.govuk-error-summary__list a').text()).toBe('The selected file contains a virus')
   expect(page.payload).not.toContain('<script>Rejected virus</script>')
-  expect($('#evidence-files-error').text()).toContain('Rejected virus')
+  expect($('#evidence-files-error').text()).toContain('The selected file contains a virus')
   expect($('.govuk-table').text()).toContain('evidence.txt')
 })
 
@@ -167,7 +168,7 @@ test('an empty upload displays Select a file while evidence remains optional', a
 })
 
 test.each([
-  { s3Bucket: 'other-bucket' }, { s3Key: 'foreign/key' }, { fileStatus: 'pending' }, { contentLength: 0 }, { fileId: 'forged' }
+  { s3Bucket: 'other-bucket' }, { s3Key: 'foreign/key' }, { s3Key: `evidence/${id}/${secondId}` }, { s3Key: `evidence/${id}/../${fileId}` }, { s3Key: `evidence/${id}/${fileId}/extra` }, { fileStatus: 'pending' }, { contentLength: 0 }, { fileId: 'forged' }
 ])('rejects incomplete or foreign S3 results: %j', async invalid => {
   await start()
   getUploadStatus.mockResolvedValue(ready({ ...clean(), ...invalid }))
@@ -267,4 +268,78 @@ test('Continue without a pending upload reaches review with no evidence', async 
   const response = await visit(review)
   expect(response.statusCode).toBe(200)
   expect(response.request.yar.get('evidenceFiles')).toBeNull()
+})
+
+test('shows configured exclusions without changing the MIME allowlist', async () => {
+  config.set('uploader.excludedFileExtensions', ['.exe', '.bat'])
+  const $ = load((await start()).payload)
+  expect($('#evidence-files-hint').text()).toContain('Files ending in .exe, .bat are not allowed')
+  expect($('form[enctype="multipart/form-data"]').attr('data-excluded-file-extensions')).toBe('.exe, .bat')
+  expect($('[data-file-exclusion-summary]').attr('hidden')).toBeDefined()
+})
+
+test('rejects excluded scan results server-side, preserves permitted files and shows escaped validation errors', async () => {
+  await start()
+  getUploadStatus.mockResolvedValue(ready([clean(), clean(secondId, '<script>.EXE')]))
+  const response = await complete()
+  expect(response.headers.location).toBe(path)
+  expect(response.request.yar.get('evidenceFiles').map(file => file.filename)).toEqual(['evidence.txt'])
+  getUploadStatus.mockResolvedValue({ uploadStatus: 'initiated' })
+  const page = await visit(path)
+  const $ = load(page.payload)
+  expect(page.statusCode).toBe(400)
+  expect($('.govuk-error-summary__list a').text()).toBe('<script>.EXE: This file type is not allowed. Choose a different file.')
+  expect(page.payload).not.toContain('<script>.EXE')
+  expect($('#evidence-files-error').text()).toContain('This file type is not allowed')
+  expect($('.govuk-table').text()).toContain('evidence.txt')
+})
+
+test('counts uploader rejections separately from extension exclusions in a mixed batch', async () => {
+  await start()
+  getUploadStatus.mockResolvedValue(ready([
+    clean(), clean(secondId, 'program.exe'),
+    { filename: 'virus.txt', fileStatus: 'rejected', hasError: true, errorCode: 'FILE_VIRUS', errorMessage: 'The file contains a virus' }
+  ]))
+  const response = await complete()
+  expect(response.statusCode).toBe(303)
+  expect(response.request.yar.get('evidenceFiles')).toHaveLength(1)
+  getUploadStatus.mockResolvedValue({ uploadStatus: 'initiated' })
+  const page = await visit(path)
+  expect(page.payload).toContain('This file type is not allowed')
+  expect(page.payload).toContain('The selected file contains a virus')
+})
+
+test.each(['GET', 'POST'])('rechecks stored attachments after configuration changes on review %s', async method => {
+  config.set('uploader.excludedFileExtensions', [])
+  await start()
+  getUploadStatus.mockResolvedValue(ready([clean(), clean(secondId, 'program.exe')]))
+  await complete()
+  config.set('uploader.excludedFileExtensions', ['.exe'])
+  const response = method === 'POST' ? await post(review) : await visit(review)
+  expect(response.headers.location).toBe(path)
+  expect(response.request.yar.get('evidenceFiles').map(file => file.filename)).toEqual(['evidence.txt'])
+  getUploadStatus.mockResolvedValue({ uploadStatus: 'initiated' })
+  const page = await visit(path)
+  expect(page.statusCode).toBe(400)
+  expect(page.payload).toContain('program.exe: This file type is not allowed')
+})
+
+test('an explicitly empty exclusion list accepts filenames otherwise blocked by default', async () => {
+  config.set('uploader.excludedFileExtensions', [])
+  await start()
+  getUploadStatus.mockResolvedValue(ready(clean(fileId, 'program.exe')))
+  const response = await complete()
+  expect(response.headers.location).toBe(review)
+  expect(response.request.yar.get('evidenceFiles')[0].filename).toBe('program.exe')
+})
+
+test.each(['INTERNAL_ERROR', undefined, 'constructor'])('never displays upstream diagnostics for an unknown rejection code: %s', async errorCode => {
+  await start()
+  getUploadStatus.mockResolvedValue(ready({ filename: 'evidence.txt', hasError: true, fileStatus: 'rejected', errorCode, errorMessage: 'private-bucket secret-token stack-trace' }))
+  await complete()
+  getUploadStatus.mockResolvedValue({ uploadStatus: 'initiated' })
+  const page = await visit(path)
+  expect(page.statusCode).toBe(400)
+  expect(page.payload).toContain('The selected file could not be uploaded')
+  expect(page.payload).not.toMatch(/private-bucket|secret-token|stack-trace/)
 })

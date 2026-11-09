@@ -4,7 +4,7 @@
   <div class="govuk-grid-row">
     <div class="govuk-grid-column-two-thirds">
       <h1 class="govuk-heading-l">{{ pageTitle }}</h1>
-      <p class="govuk-body">We could not send your issue report. Your answers and any uploaded files have been saved in this session.</p>
+      <p class="govuk-body">{% if supportEmailAccepted %}Your issue report has been sent to support, but we could not send your confirmation email.{% else %}We could not send your issue report.{% endif %} Your answers and any uploaded files have been saved in this session.</p>
       <p class="govuk-body">Your reference number is <strong>{{ reference }}</strong>. Try again in a few minutes.</p>
       <form action="/report-issue/check-your-answers" method="post">
         <input type="hidden" name="crumb" value="{{ crumb }}">

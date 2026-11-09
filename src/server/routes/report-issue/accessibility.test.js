@@ -26,7 +26,7 @@ beforeEach(() => {
   client = createJourneyClient(server)
   initiateUpload.mockReset().mockResolvedValue(uploadId)
   getUploadStatus.mockReset().mockResolvedValue({ uploadStatus: 'initiated' })
-  sendIssueEmail.mockReset().mockResolvedValue({ id: 'notify-id', recipient: 'support@example.com' })
+  sendIssueEmail.mockReset().mockResolvedValue({ id: 'notify-id', submitterCopy: { id: 'copy-id', recipient: 'reporter@example.com' }, recipient: 'support@example.com' })
 })
 
 async function audit (response) {

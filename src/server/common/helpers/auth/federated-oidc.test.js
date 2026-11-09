@@ -344,6 +344,33 @@ describe('#federatedOidc', () => {
       }
     })
 
+    test.each(['pre-login', 'post-login', 'discovery'])('keeps %s failure details out of public responses while retaining diagnostic logs', async stage => {
+      const authenticate = getAuthenticate(createMockServer())
+      const request = createMockRequest(stage === 'post-login' ? { code: 'private-code' } : {})
+      request.yar.get.mockReturnValue({ codeVerifier: 'private-verifier' })
+      const error = new Error('private-provider-details https://provider.example/?token=private-token')
+      if (stage === 'pre-login') {
+        openid.randomPKCECodeVerifier.mockImplementationOnce(() => { throw error })
+      } else if (stage === 'post-login') {
+        openid.authorizationCodeGrant.mockRejectedValueOnce(error)
+      } else {
+        request.server.oidc.getConfig.mockRejectedValueOnce(error)
+      }
+      const result = await authenticate(request, createMockH())
+      expect(result.output.statusCode).toBe(401)
+      expect(result.output.payload.message).toBe('Unable to sign in. Try again.')
+      expect(JSON.stringify(result.output.payload)).not.toContain('private-')
+      expect(console.error).toHaveBeenCalledWith(expect.stringContaining('private-provider-details'))
+    })
+
+    test('does not reflect provider callback error parameters', async () => {
+      const authenticate = getAuthenticate(createMockServer())
+      const result = await authenticate(createMockRequest({ error: 'private-reflected-error', error_description: '<script>private-description</script>' }), createMockH())
+      expect(result.output.statusCode).toBe(401)
+      expect(result.output.payload.message).toBe('Unable to sign in. Try again.')
+      expect(JSON.stringify(result.output)).not.toContain('private-')
+    })
+
     test('returns 401 when preLogin fails', async () => {
       const server = createMockServer()
       const authenticate = getAuthenticate(server)

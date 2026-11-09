@@ -1,5 +1,5 @@
 import { createJourneyClient } from '#/server/common/test-helpers/journey-client.js'
-vi.mock('#/server/routes/report-issue/issue-reported/email.js', () => ({ sendIssueEmail: vi.fn(async () => ({ id: 'notify-id', recipient: 'atlas-support@example.com' })) }))
+vi.mock('#/server/routes/report-issue/issue-reported/email.js', () => ({ sendIssueEmail: vi.fn(async () => ({ id: 'notify-id', submitterCopy: { id: 'copy-id', recipient: 'reporter@example.com' }, recipient: 'atlas-support@example.com' })) }))
 import { load } from 'cheerio'
 import { createServer } from '#/server/server.js'
 import { listDatasets } from '#/server/common/services/geonetwork/client.js'
