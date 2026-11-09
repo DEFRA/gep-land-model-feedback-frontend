@@ -26,7 +26,7 @@ function decodeMimeWords (value) {
     if (encoding.toLowerCase() === 'b') {
       bytes = Buffer.from(text, 'base64')
     } else {
-      const decoded = text.replace(/_/g, ' ').replace(/=([0-9a-f]{2})/gi, (_hex, hex) => String.fromCharCode(parseInt(hex, HEX_RADIX)))
+      const decoded = text.replaceAll('_', ' ').replace(/=([0-9a-f]{2})/gi, (_hex, hex) => String.fromCodePoint(Number.parseInt(hex, HEX_RADIX)))
       bytes = Buffer.from(decoded, 'latin1')
     }
     return new TextDecoder(charset, { fatal: true }).decode(bytes)
@@ -35,6 +35,6 @@ function decodeMimeWords (value) {
 
 export function attachmentDisposition (filename) {
   const fallback = filename.replace(/[^a-zA-Z0-9._ -]/g, '_')
-  const encoded = encodeURIComponent(filename).replace(/['()*]/g, character => `%${character.charCodeAt(0).toString(HEX_RADIX).toUpperCase()}`)
+  const encoded = encodeURIComponent(filename).replace(/['()*]/g, character => `%${character.codePointAt(0).toString(HEX_RADIX).toUpperCase()}`)
   return `attachment; filename="${fallback}"; filename*=UTF-8''${encoded}`
 }

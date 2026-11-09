@@ -4,7 +4,7 @@ export function initEvidenceFiles (navigate = url => window.location.assign(url)
     // GOV.UK enhancement changes the input ID, but preserves its form field name.
     const form = link.closest('form')
     const input = form?.elements.namedItem(link.dataset.clearFiles)
-    if (!input || input.type !== 'file') {
+    if (input?.type !== 'file') {
       continue
     }
     const updateVisibility = () => link.classList.toggle('govuk-!-display-none', input.files.length === 0)
