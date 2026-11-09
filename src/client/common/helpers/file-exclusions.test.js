@@ -12,3 +12,10 @@ test('supports custom compound extensions and an empty list', () => {
   expect(isExcludedFile('archive.TAR.GZ', ['.tar.gz'])).toBe(true)
   expect(isExcludedFile('program.exe', [])).toBe(false)
 })
+
+test('handles long dot and whitespace sequences while preserving suffix matching', () => {
+  const longPrefix = '. '.repeat(50000)
+  expect(isExcludedFile(`${longPrefix}report.pdf`, ['.exe'])).toBe(false)
+  expect(isExcludedFile(`${longPrefix}program.EXE${longPrefix}`, ['.exe'])).toBe(true)
+  expect(isExcludedFile(longPrefix, ['.exe'])).toBe(false)
+})

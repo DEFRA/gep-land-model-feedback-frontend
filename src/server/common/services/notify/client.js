@@ -52,12 +52,7 @@ export async function sendEmail ({ recipient, reference, personalisation, recipi
   const audience = recipientType === 'submitter' ? 'submitter' : 'support'
   const context = { reference, recipientType: audience }
   const operation = audience === 'submitter' ? 'send submitter copy' : 'send support email'
-  if (!settings.apiKey || !settings.templateId || !recipient) {
-    logger.warn({ ...context, failureReason: 'configuration' }, 'Issue email is not configured')
-    throw new Error('Issue email is not configured')
-  }
-  const client = new NotifyClient(settings.apiKey)
-  client.setClient(axios.create({ timeout: REQUEST_TIMEOUT_MS }))
+  const client = createNotifyClient(settings, recipient, context, logger)
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
       const response = await logExternalCall('GOV.UK Notify', operation, () => client.sendEmail(settings.templateId, recipient, {
@@ -81,4 +76,14 @@ export async function sendEmail ({ recipient, reference, personalisation, recipi
     }
   }
   throw new Error('Issue email could not be sent')
+}
+
+function createNotifyClient (settings, recipient, context, logger) {
+  if (!settings.apiKey || !settings.templateId || !recipient) {
+    logger.warn({ ...context, failureReason: 'configuration' }, 'Issue email is not configured')
+    throw new Error('Issue email is not configured')
+  }
+  const client = new NotifyClient(settings.apiKey)
+  client.setClient(axios.create({ timeout: REQUEST_TIMEOUT_MS }))
+  return client
 }

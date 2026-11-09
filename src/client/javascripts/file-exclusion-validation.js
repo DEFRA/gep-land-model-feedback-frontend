@@ -1,5 +1,8 @@
 import { isExcludedFile, fileExclusionMessage } from '../common/helpers/file-exclusions.js'
 
+const ARIA_DESCRIBED_BY = 'aria-describedby'
+const ARIA_INVALID = 'aria-invalid'
+
 /** Use the same exclusion rule in the browser and when processing scan results. */
 export function fileExclusionValidator (form, input) {
   const extensions = (form.dataset.excludedFileExtensions ?? '').split(',').map(value => value.trim()).filter(Boolean)
@@ -10,8 +13,8 @@ export function fileExclusionValidator (form, input) {
   const controls = [input, form.querySelector('button.govuk-file-upload-button')].filter(Boolean)
   const attributes = controls.map(control => ({
     control,
-    describedBy: control.getAttribute('aria-describedby'),
-    invalid: control.getAttribute('aria-invalid')
+    describedBy: control.getAttribute(ARIA_DESCRIBED_BY),
+    invalid: control.getAttribute(ARIA_INVALID)
   }))
 
   return (focus = false) => {
@@ -40,11 +43,11 @@ export function fileExclusionValidator (form, input) {
     }
     for (const { control, describedBy, invalid } of attributes) {
       if (messages.length) {
-        control.setAttribute('aria-invalid', 'true')
-        control.setAttribute('aria-describedby', [describedBy, error.id].filter(Boolean).join(' '))
+        control.setAttribute(ARIA_INVALID, 'true')
+        control.setAttribute(ARIA_DESCRIBED_BY, [describedBy, error.id].filter(Boolean).join(' '))
       } else {
-        restoreAttribute(control, 'aria-describedby', describedBy)
-        restoreAttribute(control, 'aria-invalid', invalid)
+        restoreAttribute(control, ARIA_DESCRIBED_BY, describedBy)
+        restoreAttribute(control, ARIA_INVALID, invalid)
       }
     }
     if (focus && messages.length) {
