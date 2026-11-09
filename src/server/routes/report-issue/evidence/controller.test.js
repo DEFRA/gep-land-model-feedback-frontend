@@ -270,10 +270,10 @@ test('Continue without a pending upload reaches review with no evidence', async 
   expect(response.request.yar.get('evidenceFiles')).toBeNull()
 })
 
-test('shows configured exclusions without changing the MIME allowlist', async () => {
+test('supplies exclusions to validation without displaying them in the guidance', async () => {
   config.set('uploader.excludedFileExtensions', ['.exe', '.bat'])
   const $ = load((await start()).payload)
-  expect($('#evidence-files-hint').text()).toContain('Files ending in .exe, .bat are not allowed')
+  expect($('#evidence-files-hint').text()).not.toMatch(/Files ending in|\.exe|\.bat/)
   expect($('form[enctype="multipart/form-data"]').attr('data-excluded-file-extensions')).toBe('.exe, .bat')
   expect($('[data-file-exclusion-summary]').attr('hidden')).toBeDefined()
 })
