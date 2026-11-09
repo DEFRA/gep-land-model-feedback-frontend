@@ -147,16 +147,25 @@ while the email label and downloaded attachment retain the original filename and
 extension. Downloads stream through the application as attachments, with caching
 disabled and no inline rendering. Missing objects return 404; S3 failures return a
 generic 503. Existing report links work for as long as their objects are retained.
+The response disables Hapi stream header passthrough, supplies its own attachment
+and content headers, and aborts the S3 read when the browser connection closes.
+HEAD requests read only S3 metadata. A missing bucket is treated as a service
+configuration failure (503), while a missing file returns 404.
 
 The frontend's deployment IAM role needs `s3:GetObject` on
 `arn:aws:s3:::<EVIDENCE_S3_BUCKET>/evidence/*`. For SSE-KMS encrypted buckets it also
 needs `kms:Decrypt` for the bucket's key. This feature needs no write or list
 permissions. The bucket must remain private. AWS credentials and region use the
-standard SDK provider chain; configure `AWS_REGION` as needed. Leave
-`EVIDENCE_S3_ENDPOINT` unset in deployments. For local LocalStack access, use:
+standard SDK provider chain in deployed environments. As in the Land Model Viewer,
+the client explicitly configures `AWS_REGION` (default `eu-west-2`), optional
+`S3_ENDPOINT`, path-style requests when an endpoint is set, and a 10-second request
+timeout. Local development defaults to LocalStack at `http://localhost:4566` with
+`test` / `test` credentials. Leave `S3_ENDPOINT` unset in AWS deployments.
+`EVIDENCE_S3_ENDPOINT` is retained as a fallback when `S3_ENDPOINT` is unset.
+For local LocalStack access, use:
 
 ```dotenv
-EVIDENCE_S3_ENDPOINT=http://localhost:4566
+S3_ENDPOINT=http://localhost:4566
 AWS_REGION=eu-west-2
 AWS_ACCESS_KEY_ID=test
 AWS_SECRET_ACCESS_KEY=test

@@ -1,10 +1,11 @@
+import { EventEmitter } from 'node:events'
 import { Readable } from 'node:stream'
 import { config } from '#/config/config.js'
 import { createServer } from '#/server/server.js'
 import { mockAuthCredentials } from '#/server/common/test-helpers/auth.js'
-import { getEvidence } from '#/server/common/services/evidence/client.js'
+import { getEvidence, getEvidenceMetadata } from '#/server/common/services/evidence/client.js'
 
-vi.mock('#/server/common/services/evidence/client.js', () => ({ getEvidence: vi.fn() }))
+vi.mock('#/server/common/services/evidence/client.js', async original => ({ ...await original(), getEvidence: vi.fn(), getEvidenceMetadata: vi.fn() }))
 const uploadId = '11111111-1111-4111-8111-111111111111'
 const fileId = '22222222-2222-4222-8222-222222222222'
 const url = `/evidence/download/${uploadId}/${fileId}`
@@ -33,6 +34,7 @@ beforeEach(() => {
   config.set('evidenceDownload.allowAllUsers', false)
   config.set('auth.required', true)
   config.set('evidenceDownload.aadRole', role)
+  getEvidenceMetadata.mockReset().mockResolvedValue({ ContentLength: 10, Metadata: { filename: 'Evidence.pdf' } })
   getEvidence.mockReset().mockImplementation(async () => ({ Body: Readable.from(['file bytes'], { objectMode: false }), Metadata: { filename: 'Evidence.pdf' } }))
 })
 
@@ -59,7 +61,7 @@ test('streams evidence for a role holder independently of the uploading session'
   const response = await server.inject({ url, auth: auth([role]) })
   expect(response.statusCode).toBe(200)
   expect(response.payload).toBe('file bytes')
-  expect(getEvidence).toHaveBeenCalledExactlyOnceWith(uploadId, fileId)
+  expect(getEvidence).toHaveBeenCalledExactlyOnceWith(uploadId, fileId, expect.any(AbortSignal))
   expect(response.headers['content-disposition']).toContain('attachment; filename="Evidence.pdf"')
   expect(response.headers['content-type']).toBe('application/octet-stream')
   expect(response.headers['cache-control']).toContain('no-store')
@@ -158,4 +160,55 @@ test('logs the download lifecycle and failure outcomes as console lines', async 
   await server.inject({ url, auth: auth([role]) })
   expect(console.error).toHaveBeenCalledWith(expect.stringContaining('"reason":"storage_unavailable"'))
   expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain('private storage details')
+})
+
+test('controls response headers instead of passing through S3 HTTP headers', async () => {
+  const body = Readable.from(['file bytes'], { objectMode: false })
+  body.statusCode = 200
+  body.headers = { 'x-amz-id-2': 'upstream-request', 'x-amz-meta-filename': 'private.pdf', etag: 'upstream-etag', 'cache-control': 'public', 'content-type': 'text/html' }
+  getEvidence.mockResolvedValue({ Body: body, ContentLength: 10, Metadata: { filename: 'Evidence.pdf' } })
+  const response = await server.inject({ url, auth: auth([role]) })
+  expect(response.statusCode).toBe(200)
+  expect(response.headers['content-length']).toBe('10')
+  expect(response.headers['content-type']).toBe('application/octet-stream')
+  expect(response.headers['cache-control']).toContain('no-store')
+  expect(response.headers['x-amz-id-2']).toBeUndefined()
+  expect(response.headers['x-amz-meta-filename']).toBeUndefined()
+  expect(response.headers.etag).toBeUndefined()
+})
+
+test('HEAD serves attachment metadata without downloading the body', async () => {
+  const response = await server.inject({ method: 'HEAD', url, auth: auth([role]) })
+  expect(response.statusCode).toBe(200)
+  expect(response.payload).toBe('')
+  expect(response.headers['content-length']).toBe('10')
+  expect(response.headers['content-disposition']).toContain('Evidence.pdf')
+  expect(getEvidence).not.toHaveBeenCalled()
+  expect(getEvidenceMetadata).toHaveBeenCalledExactlyOnceWith(uploadId, fileId, expect.any(AbortSignal))
+})
+
+test('missing buckets return service unavailable rather than file not found', async () => {
+  getEvidence.mockRejectedValue({ name: 'NoSuchBucket', $metadata: { httpStatusCode: 404 } })
+  expect((await server.inject({ url, auth: auth([role]) })).statusCode).toBe(503)
+})
+
+test('aborts the S3 request when the browser connection closes', async () => {
+  const rawResponse = new EventEmitter()
+  let signal
+  getEvidence.mockImplementation((_upload, _file, abortSignal) => {
+    signal = abortSignal
+    return new Promise((_resolve, reject) => signal.addEventListener('abort', () => reject(new Error('Disconnected')), { once: true }))
+  })
+  const handler = server.match('get', url).settings.handler
+  const pending = handler({
+    method: 'get',
+    params: { uploadId, fileId },
+    auth: { isAuthenticated: true, credentials: auth([role]).credentials },
+    logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+    raw: { res: rawResponse }
+  }, {})
+  expect(signal.aborted).toBe(false)
+  rawResponse.emit('close')
+  await expect(pending).rejects.toMatchObject({ output: { statusCode: 503 } })
+  expect(signal.aborted).toBe(true)
 })

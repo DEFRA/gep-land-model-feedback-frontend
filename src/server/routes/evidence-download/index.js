@@ -2,7 +2,7 @@ import Boom from '@hapi/boom'
 import { logDownload } from './logging.js'
 import Joi from 'joi'
 import { config } from '#/config/config.js'
-import { getEvidence } from '#/server/common/services/evidence/client.js'
+import { getEvidence, getEvidenceMetadata, isMissingEvidence } from '#/server/common/services/evidence/client.js'
 import { statusCodes } from '#/server/common/constants/status-codes.js'
 import { attachmentDisposition, originalFilename } from '#/server/common/services/evidence/filename.js'
 
@@ -40,10 +40,18 @@ export const evidenceDownload = {
             throw Boom.forbidden('You do not have permission to download evidence')
           }
           let object
+          const controller = new AbortController()
+          request.raw.res.once('close', () => {
+            controller.abort()
+            object?.Body?.destroy()
+          })
+          const head = request.method === 'head'
           try {
-            object = await getEvidence(request.params.uploadId, request.params.fileId)
+            const read = head ? getEvidenceMetadata : getEvidence
+            object = await read(request.params.uploadId, request.params.fileId, controller.signal)
           } catch (error) {
-            if (error?.$metadata?.httpStatusCode === statusCodes.notFound || error?.name === 'NoSuchKey') {
+            controller.abort()
+            if (isMissingEvidence(error)) {
               logDownload(request, 'Evidence download file not found', { userId: credentials.id }, 'warn')
               throw Boom.notFound('Evidence file not found')
             }
@@ -53,22 +61,29 @@ export const evidenceDownload = {
           let filename
           try {
             filename = originalFilename(object.Metadata)
-            if (!object.Body) {
+            if (!head && !object.Body) {
               throw new Error('Missing evidence content')
             }
           } catch {
+            controller.abort()
             object.Body?.destroy()
             logDownload(request, 'Evidence download failed', { userId: credentials.id, reason: 'invalid_file_metadata_or_content' }, 'error')
             throw Boom.serverUnavailable('Evidence is currently unavailable')
           }
-          logDownload(request, 'Evidence download started', { userId: credentials.id })
-          object.Body.once('end', () => logDownload(request, 'Evidence download stream ended', { userId: credentials.id }))
-          object.Body.once('error', () => logDownload(request, 'Evidence download stream failed', { userId: credentials.id }, 'error'))
-          return h.response(object.Body)
+          logDownload(request, head ? 'Evidence download metadata served' : 'Evidence download started', { userId: credentials.id })
+          object.Body?.once('end', () => logDownload(request, 'Evidence download stream ended', { userId: credentials.id }))
+          object.Body?.once('error', () => logDownload(request, 'Evidence download stream failed', { userId: credentials.id }, 'error'))
+          const response = h.response(head ? null : object.Body)
+            .passThrough(false)
+            .code(statusCodes.ok)
             .type('application/octet-stream')
             .header('content-disposition', attachmentDisposition(filename))
             .header('cache-control', 'no-store, no-cache, must-revalidate')
             .header('x-content-type-options', 'nosniff')
+          if (Number.isSafeInteger(object.ContentLength) && object.ContentLength >= 0) {
+            response.header('content-length', String(object.ContentLength))
+          }
+          return response
         }
       })
     }

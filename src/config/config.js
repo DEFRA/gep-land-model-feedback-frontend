@@ -423,10 +423,29 @@ export const config = convict({
       env: 'EVIDENCE_DOWNLOAD_AAD_ROLE'
     },
     s3Endpoint: {
-      doc: 'Optional S3 endpoint for local development; empty uses AWS',
+      doc: 'S3 endpoint, matching the viewer; EVIDENCE_S3_ENDPOINT remains a fallback',
       format: String,
-      default: '',
-      env: 'EVIDENCE_S3_ENDPOINT'
+      default: process.env.EVIDENCE_S3_ENDPOINT || (isDevelopment ? 'http://localhost:4566' : ''),
+      env: 'S3_ENDPOINT'
+    },
+    region: {
+      doc: 'Evidence bucket region',
+      format: String,
+      default: 'eu-west-2',
+      env: 'AWS_REGION'
+    },
+    accessKeyId: {
+      doc: 'LocalStack access key; deployed services use the AWS credential provider chain',
+      format: String,
+      nullable: true,
+      default: isDevelopment ? 'test' : null
+    },
+    secretAccessKey: {
+      doc: 'LocalStack secret key; deployed services use the AWS credential provider chain',
+      format: String,
+      nullable: true,
+      sensitive: true,
+      default: isDevelopment ? 'test' : null
     }
   },
   geonetwork: {
