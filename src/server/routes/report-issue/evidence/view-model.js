@@ -4,6 +4,7 @@ import { getChangeNavigation } from '../navigation.js'
 import { getEvidenceFiles } from '../helpers/answers.js'
 import { buildFormPage } from '../helpers/form-errors.js'
 import { evidencePath } from './upload-session.js'
+import { formatFileTypeLabels } from './mime-type-labels.js'
 
 export function buildViewModel (request, active, errors) {
   const files = getEvidenceFiles(request).map(file => ({
@@ -18,6 +19,7 @@ export function buildViewModel (request, active, errors) {
     maxFileSizeMB: config.get('uploader.maxFileSizeMB'),
     excludedFileExtensions: config.get('uploader.excludedFileExtensions').join(', '),
     allowedMimeTypes: config.get('uploader.allowedMimeTypes').join(', '),
+    allowedFileTypes: formatFileTypeLabels(config.get('uploader.allowedMimeTypes')),
     fileError: errors.length ? { text: errors.join('. ') } : undefined
   }
 }

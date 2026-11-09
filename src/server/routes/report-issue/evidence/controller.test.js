@@ -84,13 +84,14 @@ test('pending scans show a refresh link enhanced by JavaScript and block review 
   }
 })
 
-test('shows configured restrictions and applies MIME types to the GOV.UK file upload', async () => {
+test('shows friendly file type labels while retaining MIME values for the file picker', async () => {
   config.set('uploader.maxFileSizeMB', 2.5)
-  config.set('uploader.allowedMimeTypes', ['application/pdf', 'image/png'])
+  const types = ['application/pdf', 'image/png', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/x-custom', 'image/jpeg', 'image/jpg']
+  config.set('uploader.allowedMimeTypes', types)
   const $ = load((await start()).payload)
-  expect($('#evidence-files').attr('accept')).toBe('application/pdf, image/png')
+  expect($('#evidence-files').attr('accept')).toBe(types.join(', '))
   expect($('#evidence-files-hint').text()).toContain('2.5 MB or smaller')
-  expect($('#evidence-files-hint').text()).toContain('Allowed file types: application/pdf, image/png')
+  expect($('#evidence-files-hint').text()).toContain('Allowed file types: PDF, PNG, XLSX, application/x-custom, JPEG.')
 })
 
 test('does not restrict the file picker when the MIME allowlist is empty', async () => {
