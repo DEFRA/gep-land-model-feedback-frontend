@@ -8,15 +8,10 @@ export async function sendIssueEmail (report, rows, logger, onAccepted = async (
     email_subject: `${settings.emailSubject.trim()} - ${report.reference}`,
     reference: report.reference,
     submitter_email: report.answers.submitterEmail ?? 'Not available',
-    answers: rows.map(({ label, lines }) => `## ${label}\n${lines.join('\n')}`).join('\n\n'),
-    include_file_downloads: 'yes',
-    file_downloads: report.answers.files.length
-      ? report.answers.files.map(file => {
-        const label = file.filename.replace(/[\\[\]()*_`<>!]/g, character => `\\${character}`).replace(/[\r\n]/g, ' ')
-        const url = `${config.get('appBaseUrl').replace(/\/$/, '')}${evidenceDownloadPath(file)}`
-        return `[${label}](${url})`
-      }).join('\n\n')
-      : 'No files added'
+    answers: formatAnswers(rows, report.answers.files, true),
+    // Keep older Notify templates usable while their separate download section is removed.
+    include_file_downloads: 'no',
+    file_downloads: ''
   }
   // Retain acceptance if the second send fails, so a retry only sends the copy.
   if (!report.notification) {
@@ -24,7 +19,7 @@ export async function sendIssueEmail (report, rows, logger, onAccepted = async (
     await onAccepted()
   }
   if (report.answers.submitterEmail && !report.notification.submitterCopy) {
-    const submitterPersonalisation = { ...personalisation, include_file_downloads: 'no', file_downloads: '' }
+    const submitterPersonalisation = { ...personalisation, answers: formatAnswers(rows, report.answers.files) }
     report.notification.submitterCopy = await sendEmail({
       recipient: report.answers.submitterEmail,
       reference: report.id,
@@ -37,4 +32,20 @@ export async function sendIssueEmail (report, rows, logger, onAccepted = async (
     logger.info({ reference: report.id, recipientType: 'submitter' }, 'Submitter copy skipped: no email address available')
   }
   return report.notification
+}
+
+function formatAnswers (rows, files, includeLinks = false) {
+  const fileLines = files.length
+    ? files.map(file => includeLinks ? fileDownloadLink(file) : escapeFilename(file.filename))
+    : ['No files added']
+  return rows.map(({ label, lines }) => `## ${label}\n${(label === 'Files' ? fileLines : lines).join('\n')}`).join('\n\n')
+}
+
+function escapeFilename (filename) {
+  return filename.replace(/[\\[\]()*_`<>!#]/g, character => `\\${character}`).replace(/[\r\n]/g, ' ')
+}
+
+function fileDownloadLink (file) {
+  const url = `${config.get('appBaseUrl').replace(/\/$/, '')}${evidenceDownloadPath(file)}`
+  return `[${escapeFilename(file.filename)}](${url})`
 }

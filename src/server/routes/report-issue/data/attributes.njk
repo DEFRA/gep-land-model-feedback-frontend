@@ -12,6 +12,7 @@
       {% if errorSummary %}{{ govukErrorSummary(errorSummary) }}{% endif %}
       <form action="{{ formAction }}" method="post" novalidate>
         <input type="hidden" name="crumb" value="{{ crumb }}">
+        <input type="hidden" name="reportJourneyId" value="{{ reportJourneyId }}">
         {{ govukCheckboxes({
           name: "attributes", idPrefix: "attributes", values: attributes,
           fieldset: { legend: { text: question, isPageHeading: true, classes: "govuk-fieldset__legend--l" } },

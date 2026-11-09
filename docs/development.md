@@ -65,3 +65,11 @@ and [JavaScript standards](https://defra.github.io/software-development-standard
 Keep validation on the server and include the hidden `crumb` CSRF token in
 application POST forms. Wrap new external API calls with `logExternalCall`, using
 fixed service and operation names without user input or payloads.
+
+## Completed reports
+
+Successful submission clears workflow answers and attachment references. The
+session keeps only the report reference and delivery confirmation. Confirmation
+refreshes remain available; revisiting old forms shows an expired-session page.
+Use **Report another issue** to start again. Failed sends retain their answers for
+retry. Browser-restored forms recheck their report session before displaying.

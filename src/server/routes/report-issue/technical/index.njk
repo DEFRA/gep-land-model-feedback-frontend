@@ -29,6 +29,7 @@
 
       <form action="{{ formAction }}" method="post" novalidate>
         <input type="hidden" name="crumb" value="{{ crumb }}">
+        <input type="hidden" name="reportJourneyId" value="{{ reportJourneyId }}">
         {{ govukRadios({
           name: "technicalArea",
           idPrefix: "technical-area",

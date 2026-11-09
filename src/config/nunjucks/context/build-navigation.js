@@ -4,11 +4,6 @@ export function buildNavigation (request) {
       text: 'Home',
       href: '/',
       current: request?.path === '/'
-    },
-    {
-      text: 'About',
-      href: '/about',
-      current: request?.path === '/about'
     }
   ]
 }

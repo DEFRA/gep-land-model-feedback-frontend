@@ -138,24 +138,17 @@ Use this body, including all placeholders:
 ((submitter_email))
 
 ((answers))
-
-((include_file_downloads??## File downloads))
-((file_downloads))
 ```
 
-The same template sends both emails. The app sets `include_file_downloads` to
-`yes` for support and `no` for the submitter, with an empty `file_downloads` value
-for the submitter. Keep the heading conditional and the links placeholder separate:
-[Notify optional content](https://www.notifications.service.gov.uk/using-notify/optional-content)
-cannot contain personalisation placeholders. Update existing templates to match.
+The same template sends both emails. In the Files section of `answers`, support
+receives filenames linked to authenticated downloads; the submitter receives
+plain filenames. If no files were added, both show `No files added`.
+Remove the separate File downloads heading and its placeholders from existing
+Notify templates so files appear only in the Files section.
 
-The submitter receives the same reference and answers, including filenames,
-without download links. The recipient comes from the signed-in session; no copy
-is sent when that email address is unavailable.
-
-`answers` contains the report answers; `file_downloads` contains authenticated
-application links. `submitter_email` comes from the signed-in session, or is
-`Not available` when absent. Use a Notify test API key to test without delivery.
+The submitter address comes from the signed-in session; no copy is sent when it
+is unavailable. `submitter_email` is `Not available` when absent. Use a Notify
+test API key to test without delivery.
 
 Both emails must be accepted before confirmation. Failed sends preserve the
 report for retry; an accepted support email is not resent if only the copy fails.

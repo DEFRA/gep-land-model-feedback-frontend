@@ -33,7 +33,7 @@ export function context (request) {
   return {
     user,
     assetPath: `${assetPath}/assets`,
-    serviceName: config.get('serviceDisplayName'),
+    serviceName: config.get('serviceName'),
     serviceUrl: '/',
     isDevelopment: !config.get('isProduction') && !config.get('isTest'),
     cookieName: config.get('cookieConsent.name'),

@@ -35,12 +35,12 @@ test.each(['GET', 'POST'])('OIDC callback creates a usable session and header fo
         claims: { oid: 'integration-user', name: 'Feedback User', email: 'feedback@example.com' },
         accessToken: 'access-token',
         refreshToken: 'refresh-token',
-        referrer: '/about'
+        referrer: '/privacy'
       }
     }
   })
   expect(response.statusCode).toBe(200)
-  expect(response.payload).toContain("URL='/about'")
+  expect(response.payload).toContain("URL='/privacy'")
   const cookie = readCookies(response)
   expect(cookie).toContain(`${cookieName}=`)
   expect(cookie).not.toContain('access-token')

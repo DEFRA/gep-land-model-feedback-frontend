@@ -1,0 +1,20 @@
+{% extends 'layouts/page.njk' %}
+{% from 'govuk/components/button/macro.njk' import govukButton %}
+
+{% block content %}
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      <h1 class="govuk-heading-l">Your session has expired</h1>
+      {% if submissionMade %}
+        <p class="govuk-body">Your previous submission has already been made. Your answers have been cleared and you cannot return to that submission.</p>
+      {% else %}
+        <p class="govuk-body">This report session could not be restored.</p>
+      {% endif %}
+      <p class="govuk-body">You can create a new report to tell us about another issue.</p>
+      <form id="report-restart-form" action="/report-issue/start-new" method="post">
+        <input type="hidden" name="crumb" value="{{ crumb }}">
+        {{ govukButton({ text: 'Report another issue' }) }}
+      </form>
+    </div>
+  </div>
+{% endblock %}

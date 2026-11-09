@@ -1,3 +1,4 @@
+import { sendIssueEmail } from '../issue-reported/email.js'
 import { createJourneyClient } from '#/server/common/test-helpers/journey-client.js'
 vi.mock('#/server/routes/report-issue/issue-reported/email.js', () => ({ sendIssueEmail: vi.fn(async () => ({ id: 'notify-id', submitterCopy: { id: 'copy-id', recipient: 'reporter@example.com' }, recipient: 'atlas-support@example.com' })) }))
 import { load } from 'cheerio'
@@ -128,7 +129,8 @@ test('accepts multiple clean files, preserves their private S3 references and di
   expect(summary.payload).toContain('evidence.txt<br>second.txt')
   expect(summary.payload).not.toContain(`evidence/${id}/`)
   const submitted = await post(review)
-  expect(submitted.request.yar.get('reportedIssue').answers.files).toHaveLength(2)
+  expect(sendIssueEmail.mock.calls.at(-1)[0].answers.files).toHaveLength(2)
+  expect(submitted.request.yar.get('evidenceFiles')).toBeNull()
 })
 
 test('a single-file status is supported and completion replay cannot duplicate the attachment', async () => {

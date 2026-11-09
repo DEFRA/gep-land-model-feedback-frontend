@@ -67,14 +67,9 @@ describe('context and cache', () => {
               current: true,
               text: 'Home',
               href: '/'
-            },
-            {
-              current: false,
-              text: 'About',
-              href: '/about'
             }
           ],
-          serviceName: 'Defra Group Land Model Issue Reporting',
+          serviceName: 'gep-land-model-feedback-frontend',
           serviceUrl: '/'
         })
       })
@@ -156,14 +151,9 @@ describe('context and cache', () => {
               current: true,
               text: 'Home',
               href: '/'
-            },
-            {
-              current: false,
-              text: 'About',
-              href: '/about'
             }
           ],
-          serviceName: 'Defra Group Land Model Issue Reporting',
+          serviceName: 'gep-land-model-feedback-frontend',
           serviceUrl: '/'
         })
       })

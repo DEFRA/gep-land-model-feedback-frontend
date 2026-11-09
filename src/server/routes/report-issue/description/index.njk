@@ -16,6 +16,7 @@
       {% if errorSummary %}{{ govukErrorSummary(errorSummary) }}{% endif %}
       <form action="{{ formAction }}" method="post" novalidate>
         <input type="hidden" name="crumb" value="{{ crumb }}">
+        <input type="hidden" name="reportJourneyId" value="{{ reportJourneyId }}">
         {% if isOtherDataset %}
           <h1 class="govuk-heading-l">{{ question }}</h1>
           {{ govukInput({ id: "issue-where", name: "issueWhere", value: issueWhere,

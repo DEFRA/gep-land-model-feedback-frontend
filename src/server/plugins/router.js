@@ -5,7 +5,6 @@ import { config } from '#/config/config.js'
 
 import { home } from '#/server/routes/home/index.js'
 import { reportIssue } from '#/server/routes/report-issue/index.js'
-import { about } from '#/server/routes/about/index.js'
 import { cookies } from '#/server/routes/cookies/controller.js'
 import { privacy } from '#/server/routes/privacy/index.js'
 import { accessibilityStatement } from '#/server/routes/accessibility-statement/index.js'
@@ -22,7 +21,7 @@ export const router = {
       await server.register([health])
 
       // Application specific routes, add your own routes here
-      await server.register([...(config.get('auth.required') ? [auth] : []), home, reportIssue, evidenceDownload, about, cookies, privacy, accessibilityStatement])
+      await server.register([...(config.get('auth.required') ? [auth] : []), home, reportIssue, evidenceDownload, cookies, privacy, accessibilityStatement])
 
       // Static assets
       if (!config.get('isProduction') && !config.get('isTest')) {

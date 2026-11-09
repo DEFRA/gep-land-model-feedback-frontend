@@ -63,6 +63,14 @@
   }
 }
 
+.defra-header__service-name--button {
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  text-align: inherit;
+}
+
 // ===== Header auth =====
 
 .defra-header__auth {

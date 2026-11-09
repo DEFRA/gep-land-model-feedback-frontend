@@ -23,8 +23,10 @@ export function createJourneyClient (server) {
 
   async function submit (url, fields = {}, csrfPage = url) {
     const page = await visit(csrfPage)
-    const crumb = load(page.payload)('input[name="crumb"]').val()
-    return visit(url, { crumb, ...fields })
+    const $ = load(page.payload)
+    const crumb = $('input[name="crumb"]').val()
+    const reportJourneyId = $('input[name="reportJourneyId"]').val()
+    return visit(url, { crumb, ...(reportJourneyId ? { reportJourneyId } : {}), ...fields })
   }
 
   return { visit, submit }

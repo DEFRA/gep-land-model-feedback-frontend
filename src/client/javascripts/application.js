@@ -11,7 +11,9 @@ import {
 import { initCookieBanner, initCookiesPage } from './cookies.js'
 import { initScanRefresh } from './scan-refresh.js'
 import { initEvidenceFiles } from './evidence-files.js'
+import { initReportHistory } from './report-history.js'
 
+initReportHistory()
 initCookieBanner()
 initCookiesPage()
 initScanRefresh()

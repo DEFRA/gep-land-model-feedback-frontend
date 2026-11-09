@@ -22,6 +22,7 @@
           {% set removeForm %}
             <form action="{{ file.removeAction }}" method="post">
               <input type="hidden" name="crumb" value="{{ crumb }}">
+              <input type="hidden" name="reportJourneyId" value="{{ reportJourneyId }}">
               {% set removeLabel %}Remove<span class="govuk-visually-hidden"> {{ file.filename }}</span>{% endset %}
               <button type="submit" class="govuk-link govuk-link--no-visited-state app-link-button">{{ removeLabel | safe }}</button>
             </form>

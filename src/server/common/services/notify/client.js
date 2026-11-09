@@ -15,6 +15,14 @@ const RETRY_BACKOFF_MULTIPLIER = 2
 
 const retryableCodes = new Set(['ECONNRESET', 'ECONNREFUSED', 'ECONNABORTED', 'ETIMEDOUT', 'EAI_AGAIN', 'ENOTFOUND', 'EPIPE', 'ERR_NETWORK'])
 
+function notifyErrorDetails (error) {
+  const errors = error.response?.data?.errors
+  const notifyErrors = Array.isArray(errors)
+    ? errors.map(entry => entry?.message).filter(message => typeof message === 'string')
+    : []
+  return notifyErrors.length ? { notifyErrors } : {}
+}
+
 function isTemporaryFailure (error) {
   const status = error.response?.status
   return status === statusCodes.requestTimeout ||
@@ -67,8 +75,8 @@ export async function sendEmail ({ recipient, reference, personalisation, recipi
     } catch (error) {
       const wait = retryDelay(error, attempt)
       const retrying = attempt < MAX_ATTEMPTS && wait !== null
-      // SDK errors can include API keys, recipient addresses and submitted answers.
-      logger.warn({ ...context, attempt, statusCode: error.response?.status, retrying, retryDelayMs: retrying ? wait : undefined }, 'Issue email request failed')
+      // Log Notify’s messages without the SDK request, headers or personalisation.
+      logger.warn({ ...context, attempt, statusCode: error.response?.status, ...notifyErrorDetails(error), retrying, retryDelayMs: retrying ? wait : undefined }, 'Issue email request failed')
       if (!retrying) {
         throw new Error('Issue email could not be sent')
       }

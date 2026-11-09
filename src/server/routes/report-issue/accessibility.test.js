@@ -56,7 +56,7 @@ async function technicalJourney () {
   await client.submit('/report-issue/description', { issueDescription: 'Example issue' })
 }
 
-test.each(['/', '/about', '/privacy', '/accessibility-statement', '/cookies'])('accessible page structure at %s', async path => {
+test.each(['/', '/privacy', '/accessibility-statement', '/cookies'])('accessible page structure at %s', async path => {
   await audit(await client.visit(path))
 })
 
