@@ -69,6 +69,38 @@ system. File-download links in emails are placeholders.
 
 ## External API logging
 
+Every failed external call also emits an error-level structured entry under
+`externalApiError` and a single `console.error` line with diagnostics in the
+message itself, matching the OIDC fallback. This works when hosting only displays
+console messages and does not require debug logging. It covers GeoNetwork, CDP
+Uploader, GOV.UK Notify, OIDC and Cognito, including each failed retry attempt.
+For example:
+
+```text
+External API call failed: {"service":"CDP Uploader","operation":"initiate upload","durationMs":42,"outcome":"failure","name":"TypeError","causeCode":"ENOTFOUND"}
+```
+
+Diagnostics include service, operation, elapsed time, HTTP status when available,
+and safe error name/code and nested cause code. Raw messages, URLs, request/response
+bodies and credentials are omitted by this shared fallback. Successful calls keep
+their existing structured summaries without extra console errors. The console
+fallback writes to stderr regardless of `LOG_LEVEL` or `LOG_ENABLED`. Existing
+OIDC and GeoNetwork diagnostics may add a second line with operation-specific
+context.
+
+GeoNetwork failures also use the OIDC logging pattern: an error entry with
+`geonetworkError` fields and a single `console.error` line starting with
+`GeoNetwork list datasets failed:`. The console line includes JSON diagnostics
+in the message itself, so details remain visible when hosting drops custom
+structured fields. No debug log setting is needed. Diagnostics include the stage,
+page offset (`from`), HTTP status when received, error name, safe error/cause codes
+and elapsed milliseconds. Raw error messages, response bodies and URLs are omitted.
+For example, a certificate failure may appear as:
+
+```text
+GeoNetwork list datasets failed: {"stage":"request","from":0,"name":"TypeError","causeCode":"SELF_SIGNED_CERT_IN_CHAIN","durationMs":42}
+```
+
 All server-side external API operations use `logExternalCall` in the existing
 logging helper. This covers GeoNetwork searches (each page), CDP Uploader
 initiation and status checks, each Notify send attempt, OIDC discovery, code

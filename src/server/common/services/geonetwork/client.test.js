@@ -1,15 +1,24 @@
 import { listDatasets } from './client.js'
 import { config } from '#/config/config.js'
 
+const { logger } = vi.hoisted(() => ({ logger: { error: vi.fn() } }))
+vi.mock('../../helpers/logging/logger.js', () => ({
+  createLogger: () => logger,
+  logExternalCall: (_service, _operation, call) => call()
+}))
 const request = vi.fn()
+let consoleError
 const hit = { _id: 'dataset-1', _source: { resourceTitleObject: { default: 'Example dataset' } } }
 const response = (hits = [hit], total = hits.length) => ({ status: 200, json: async () => ({ hits: { hits, total } }) })
 const originalCategories = config.get('geonetwork.datasetCategories')
 afterEach(() => {
+  consoleError.mockRestore()
   vi.unstubAllGlobals()
   config.set('geonetwork.datasetCategories', originalCategories)
 })
 beforeEach(() => {
+  logger.error.mockClear()
+  consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
   request.mockReset().mockResolvedValue(response())
   vi.stubGlobal('fetch', request)
   config.set('geonetwork.datasetCategories', [])
@@ -68,4 +77,34 @@ test('propagates network and JSON failures', async () => {
   await expect(listDatasets()).rejects.toThrow('Network unavailable')
   request.mockResolvedValueOnce({ status: 200, json: async () => { throw new SyntaxError('Invalid JSON') } })
   await expect(listDatasets()).rejects.toThrow('Invalid JSON')
+})
+
+test('logs HTTP failures as structured diagnostics and a single console line', async () => {
+  request.mockResolvedValueOnce({ status: 403 })
+  await expect(listDatasets()).rejects.toThrow('returned 403')
+  const details = { stage: 'request', from: 0, statusCode: 403, name: 'Error', durationMs: expect.any(Number) }
+  expect(logger.error).toHaveBeenCalledWith({ geonetworkError: details }, 'GeoNetwork list datasets failed')
+  expect(consoleError).toHaveBeenCalledExactlyOnceWith(expect.stringContaining('GeoNetwork list datasets failed: '))
+  expect(JSON.parse(consoleError.mock.calls[0][0].split('failed: ')[1])).toEqual(details)
+})
+
+test.each(['ENOTFOUND', 'ECONNREFUSED', 'DEPTH_ZERO_SELF_SIGNED_CERT', 'SELF_SIGNED_CERT_IN_CHAIN'])('logs network cause %s without exposing private details', async code => {
+  const error = new TypeError('fetch failed https://user:secret@example.com', {
+    cause: Object.assign(new Error('private certificate or URL'), { code })
+  })
+  request.mockRejectedValueOnce(error)
+  await expect(listDatasets()).rejects.toBe(error)
+  expect(logger.error.mock.calls[0][0].geonetworkError).toMatchObject({ name: 'TypeError', causeCode: code })
+  expect(consoleError.mock.calls[0][0]).toContain(code)
+  expect(JSON.stringify([logger.error.mock.calls, consoleError.mock.calls])).not.toMatch(/secret|private|example.com/)
+})
+
+test('identifies timeouts and JSON failures, including a successful HTTP status before parsing', async () => {
+  request.mockRejectedValueOnce(new DOMException('private timeout message', 'TimeoutError'))
+  await expect(listDatasets()).rejects.toThrow()
+  expect(consoleError.mock.calls[0][0]).toContain('TimeoutError')
+  request.mockResolvedValueOnce({ status: 200, json: async () => { throw new SyntaxError('private response') } })
+  await expect(listDatasets()).rejects.toThrow()
+  expect(logger.error.mock.calls[1][0].geonetworkError).toMatchObject({ stage: 'parse JSON', statusCode: 200, name: 'SyntaxError' })
+  expect(JSON.stringify(consoleError.mock.calls)).not.toContain('private')
 })
