@@ -67,11 +67,6 @@ describe('context and cache', () => {
               current: true,
               text: 'Home',
               href: '/'
-            },
-            {
-              current: false,
-              text: 'About',
-              href: '/about'
             }
           ],
           serviceName: 'gep-land-model-feedback-frontend',
@@ -156,11 +151,6 @@ describe('context and cache', () => {
               current: true,
               text: 'Home',
               href: '/'
-            },
-            {
-              current: false,
-              text: 'About',
-              href: '/about'
             }
           ],
           serviceName: 'gep-land-model-feedback-frontend',
