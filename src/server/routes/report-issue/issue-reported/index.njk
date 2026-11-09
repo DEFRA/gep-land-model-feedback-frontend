@@ -2,6 +2,9 @@
 {% from "govuk/components/panel/macro.njk" import govukPanel %}
 
 {% block content %}
+  <form id="report-restart-form" action="/report-issue/start-new" method="post">
+    <input type="hidden" name="crumb" value="{{ crumb }}">
+  </form>
   <div class="govuk-grid-row">
     <div class="govuk-grid-column-two-thirds">
       {% set referenceHtml %}

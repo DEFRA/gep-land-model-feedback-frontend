@@ -94,6 +94,37 @@ test.each([400, 401, 403, 404, 422])('does not retry permanent HTTP %s failures'
   expect(delay).not.toHaveBeenCalled()
 })
 
+test.each([
+  ['Error: Your system clock must be accurate to within 30 seconds', 'clock_mismatch'],
+  ['Invalid token: API key revoked', 'api_key_revoked'],
+  ['Invalid token: API key not found', 'api_key_invalid'],
+  ['Invalid token: signature, api token not found', 'api_key_invalid'],
+  ["Can't send to this recipient using a team-only API key", 'recipient_restricted'],
+  ["Can't send to this recipient when service is in trial mode", 'recipient_restricted'],
+  ["Can't send to this recipient when service is in trial mode - see https://www.notifications.service.gov.uk/trial-mode", 'recipient_restricted']
+])('logs a fixed diagnostic category for Notify rejection: %s', async (message, failureReason) => {
+  transport.mockRejectedValue({ response: { status: 403, data: { errors: [{ error: 'AuthError', message }] } } })
+
+  await expect(sendIssueEmail(report, rows, logger)).rejects.toThrow('Issue email could not be sent')
+
+  expect(logger.warn).toHaveBeenCalledWith(expect.objectContaining({ failureReason, retrying: false }), 'Issue email request failed')
+  expect(transport).toHaveBeenCalledOnce()
+  expect(JSON.stringify(logger.warn.mock.calls)).not.toContain(message)
+})
+
+test.each([
+  { errors: [{ error: 'private-key', message: 'private recipient or submitted answers' }] },
+  { errors: [null, { message: 'Invalid token: private-key' }] },
+  { errors: 'private upstream response' }
+])('does not log unrecognised Notify response details', async data => {
+  transport.mockRejectedValue({ response: { status: 403, data } })
+
+  await expect(sendIssueEmail(report, rows, logger)).rejects.toThrow('Issue email could not be sent')
+
+  expect(logger.warn).toHaveBeenCalledWith(expect.not.objectContaining({ failureReason: expect.anything() }), 'Issue email request failed')
+  expect(JSON.stringify(logger.warn.mock.calls)).not.toContain('private')
+})
+
 test('stops after three attempts and avoids logging the SDK error or personalisation', async () => {
   transport.mockRejectedValue({ response: { status: 503, data: 'secret-api-key' }, config: { personalisation: 'private description' } })
   await expect(sendIssueEmail(report, rows, logger)).rejects.toThrow('could not be sent')

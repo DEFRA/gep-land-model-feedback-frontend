@@ -56,6 +56,7 @@ export const issueReportedController = {
     }
     return h.view('report-issue/issue-reported/index', {
       pageTitle: 'Issue reported',
+      restartReportFormId: 'report-restart-form',
       reference: reportedIssue.reference,
       supportMailboxAddress: reportedIssue.notification.recipient
     })

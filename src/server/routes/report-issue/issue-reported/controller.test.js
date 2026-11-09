@@ -297,21 +297,26 @@ test('an expired page never claims a report was sent when there is no completed 
   expect(response.payload).not.toContain('Your previous submission has already been made')
 })
 
-test('the expired-page service name submits the same protected restart form as Report another issue', async () => {
+test.each(['/report-issue/session-expired', reportedPath])('the service name on %s starts a fresh report using a protected form', async path => {
   await start('technical')
   await submit(reviewPath)
-  const expired = await visit('/report-issue/session-expired')
-  const $ = load(expired.payload)
+  const page = await visit(path)
+  const $ = load(page.payload)
   const heading = $('.defra-header__service-name')
   expect(heading.is('button[type="submit"]')).toBe(true)
   expect(heading.attr('form')).toBe('report-restart-form')
   const form = $('#report-restart-form')
   expect(form.attr('method')).toBe('post')
   expect(form.attr('action')).toBe('/report-issue/start-new')
+  if (path === reportedPath) {
+    expect($('main button')).toHaveLength(0)
+  }
   const response = await visit(form.attr('action'), { crumb: form.find('input[name="crumb"]').val() })
   expect(response.headers.location).toBe('/')
   const home = await visit('/')
   expect(load(home.payload)('input:checked')).toHaveLength(0)
   expect(load(home.payload)('.defra-header__service-name').is('a[href="/"]')).toBe(true)
   expect(home.request.yar.get('reportedIssue')).toBeNull()
+  expect(home.request.yar.get('reportJourney').completed).toBe(false)
+  expect(sendIssueEmail).toHaveBeenCalledOnce()
 })
