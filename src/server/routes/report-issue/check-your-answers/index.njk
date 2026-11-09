@@ -25,6 +25,7 @@
       {{ govukSummaryList({ rows: summaryRows }) }}
       <form action="/report-issue/check-your-answers" method="post" novalidate>
         <input type="hidden" name="crumb" value="{{ crumb }}">
+        <input type="hidden" name="reportJourneyId" value="{{ reportJourneyId }}">
         {{ govukButton({ text: "Submit", preventDoubleClick: true }) }}
       </form>
     </div>

@@ -55,11 +55,6 @@ export const config = convict({
     format: String,
     default: 'gep-land-model-feedback-frontend'
   },
-  serviceDisplayName: {
-    doc: 'Human-readable service name shown in the UI',
-    format: String,
-    default: 'Defra Group Land Model Issue Reporting'
-  },
   supportMailboxAddress: {
     doc: 'Destination mailbox for issue report emails, shown on the Issue reported page',
     format: 'email',

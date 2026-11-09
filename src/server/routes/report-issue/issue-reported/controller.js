@@ -5,10 +5,7 @@ import { checkEvidenceUpload } from '../evidence/upload-session.js'
 import { buildSummaryRows } from '../check-your-answers/view-model.js'
 import { getOrCreateReceipt } from './receipt.js'
 import { sendIssueEmail } from './email.js'
-
-function isSubmissionComplete (report) {
-  return report?.notification && (!report.answers.submitterEmail || report.notification.submitterCopy)
-}
+import { isSubmissionComplete, completeReport } from '../helpers/report-session.js'
 
 export const submitIssueController = {
   async handler (request, h) {
@@ -46,6 +43,7 @@ export const submitIssueController = {
         }).code(statusCodes.serviceUnavailable)
       }
     }
+    completeReport(request, report)
     return h.redirect('/report-issue/issue-reported').code(statusCodes.seeOther)
   }
 }

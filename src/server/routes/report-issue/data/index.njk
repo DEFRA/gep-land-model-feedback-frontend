@@ -26,6 +26,7 @@
       {% endset %}
       <form action="{{ formAction }}" method="post" novalidate>
         <input type="hidden" name="crumb" value="{{ crumb }}">
+        <input type="hidden" name="reportJourneyId" value="{{ reportJourneyId }}">
         {{ govukRadios({
           name: "dataset", idPrefix: "dataset", value: dataset,
           fieldset: { legend: { text: question, isPageHeading: true, classes: "govuk-fieldset__legend--l" } },

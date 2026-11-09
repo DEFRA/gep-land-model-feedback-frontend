@@ -53,11 +53,15 @@ test.each(['data', 'technical'])('%s Submit creates a UUID receipt and displays 
   expect(receipt.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
   expect(receipt.reference).toMatch(/^[0-9A-F]{12}$/)
   expect(receipt.reference).toBe(receipt.id.replaceAll('-', '').slice(0, 12).toUpperCase())
-  expect(receipt.answers.issueType).toBe(issueType)
-  expect(receipt.answers.description).toBe('Example issue description')
-  expect(receipt.answers.submitterEmail).toBe(mockAuthCredentials.credentials.email)
+  expect(receipt.completed).toBe(true)
+  expect(receipt).not.toHaveProperty('answers')
+  expect(sendIssueEmail.mock.calls[0][0].answers.issueType).toBe(issueType)
+  expect(sendIssueEmail.mock.calls[0][0].answers.description).toBe('Example issue description')
   expect(sendIssueEmail.mock.calls[0][0].answers.submitterEmail).toBe(mockAuthCredentials.credentials.email)
-  expect(receipt.answers).not.toHaveProperty(issueType === 'data' ? 'technicalArea' : 'location')
+  expect(sendIssueEmail.mock.calls[0][0].answers).not.toHaveProperty(issueType === 'data' ? 'technicalArea' : 'location')
+  for (const key of ['issueType', 'issueDescription', 'technicalArea', 'technicalOther', 'dataset', 'issueLocation', 'incorrectAttributes', 'evidenceFiles', 'evidenceUpload']) {
+    expect(response.request.yar.get(key)).toBeNull()
+  }
   const confirmation = await visit(reportedPath)
   const $ = load(confirmation.payload)
   expect(confirmation.statusCode).toBe(200)
@@ -73,22 +77,33 @@ test.each(['data', 'technical'])('%s Submit creates a UUID receipt and displays 
   expect($('.govuk-back-link')).toHaveLength(0)
 })
 
-test('refresh and repeated POST reuse the same reference; edits produce a new receipt without changing the old snapshot', async () => {
-  await start('technical')
+test('confirmation refresh retains only the receipt; Back and stale POST expire without resending', async () => {
+  const review = await start('technical')
+  const $ = load(review.payload)
+  const cachedFields = { crumb: $('input[name="crumb"]').val(), reportJourneyId: $('input[name="reportJourneyId"]').val() }
   const first = await submit(reviewPath)
   const receipt = first.request.yar.get('reportedIssue')
   const reload = await visit(reportedPath)
   expect(load(reload.payload)('.govuk-panel__body strong').text()).toBe(receipt.reference)
   expect(reload.request.yar.get('reportedIssue')).toEqual(receipt)
-  expect((await submit(reviewPath)).request.yar.get('reportedIssue')).toEqual(receipt)
+  for (const url of ['/', '/report-issue/technical', '/report-issue/description', '/report-issue/evidence', reviewPath]) {
+    expect((await visit(url)).headers.location).toBe('/report-issue/session-expired')
+  }
+  const repeated = await visit(reviewPath, cachedFields)
+  expect(repeated.headers.location).toBe('/report-issue/session-expired')
   expect(sendIssueEmail).toHaveBeenCalledOnce()
-  await submit('/report-issue/description?returnTo=check-your-answers', { issueDescription: 'Changed description' })
-  const existing = await visit(reportedPath)
-  expect(existing.request.yar.get('reportedIssue').answers.description).toBe('Example issue description')
+  const expired = await visit('/report-issue/session-expired')
+  expect(expired.payload).toContain('Your previous submission has already been made')
+  expect(load(expired.payload)('form[action="/report-issue/start-new"] button').text().trim()).toBe('Report another issue')
+  const restart = await client.submit('/report-issue/start-new', {}, '/report-issue/session-expired')
+  expect(restart.headers.location).toBe('/')
+  const home = await visit('/')
+  expect(load(home.payload)('input:checked')).toHaveLength(0)
+  expect(home.request.yar.get('reportedIssue')).toBeNull()
+  await start('technical')
   const next = await submit(reviewPath)
-  const updated = next.request.yar.get('reportedIssue')
-  expect(updated.reference).not.toBe(receipt.reference)
-  expect(updated.answers.description).toBe('Changed description')
+  expect(next.request.yar.get('reportedIssue').reference).not.toBe(receipt.reference)
+  expect(sendIssueEmail).toHaveBeenCalledTimes(2)
 })
 
 test('confirmation retains the actual recipient even if configuration subsequently changes', async () => {
@@ -139,7 +154,7 @@ test('failed email preserves the reference and answers, blocks confirmation and 
   expect((await visit(reportedPath)).headers.location).toBe(reviewPath)
   const retry = await submit(reviewPath)
   expect(retry.headers.location).toBe(reportedPath)
-  expect(retry.request.yar.get('reportedIssue')).toMatchObject({ id: receipt.id, reference: receipt.reference, answers: receipt.answers, notification: { id: 'notify-id' } })
+  expect(retry.request.yar.get('reportedIssue')).toMatchObject({ id: receipt.id, reference: receipt.reference, completed: true, notification: { id: 'notify-id' } })
   expect(sendIssueEmail).toHaveBeenCalledTimes(2)
 })
 
@@ -251,4 +266,52 @@ test('does not send emails if the receipt cannot be saved and logs the safe fail
     commit.mockRestore()
     errorLog.mockRestore()
   }
+})
+
+test('session status expires completed and earlier journeys; starting again requires CSRF', async () => {
+  const review = await start('technical')
+  const journeyId = review.request.yar.get('reportJourney').id
+  const statusUrl = `/report-issue/session-status?journeyId=${journeyId}`
+  const active = await visit(statusUrl)
+  expect(active.result).toEqual({ active: true })
+  expect(active.headers['cache-control']).toContain('no-store')
+  await submit(reviewPath)
+  expect((await visit(statusUrl)).result).toEqual({ active: false })
+  expect((await visit('/report-issue/start-new', {})).statusCode).toBe(403)
+  await client.submit('/report-issue/start-new', {}, '/report-issue/session-expired')
+  const fresh = await visit('/')
+  const $ = load(fresh.payload)
+  const currentId = fresh.request.yar.get('reportJourney').id
+  expect(currentId).not.toBe(journeyId)
+  expect((await visit(statusUrl)).result).toEqual({ active: false })
+  expect((await visit(`/report-issue/session-status?journeyId=${currentId}`)).result).toEqual({ active: true })
+  const stale = await visit('/report-issue/technical', { crumb: $('input[name="crumb"]').val(), reportJourneyId: journeyId, technicalArea: 'data-export' })
+  expect(stale.headers.location).toBe('/report-issue/session-expired')
+  expect(stale.request.yar.get('technicalArea')).toBeNull()
+  expect(stale.request.yar.get('reportJourney').id).toBe(currentId)
+})
+
+test('an expired page never claims a report was sent when there is no completed receipt', async () => {
+  const response = await visit('/report-issue/session-expired')
+  expect(response.payload).toContain('This report session could not be restored')
+  expect(response.payload).not.toContain('Your previous submission has already been made')
+})
+
+test('the expired-page service name submits the same protected restart form as Report another issue', async () => {
+  await start('technical')
+  await submit(reviewPath)
+  const expired = await visit('/report-issue/session-expired')
+  const $ = load(expired.payload)
+  const heading = $('.defra-header__service-name')
+  expect(heading.is('button[type="submit"]')).toBe(true)
+  expect(heading.attr('form')).toBe('report-restart-form')
+  const form = $('#report-restart-form')
+  expect(form.attr('method')).toBe('post')
+  expect(form.attr('action')).toBe('/report-issue/start-new')
+  const response = await visit(form.attr('action'), { crumb: form.find('input[name="crumb"]').val() })
+  expect(response.headers.location).toBe('/')
+  const home = await visit('/')
+  expect(load(home.payload)('input:checked')).toHaveLength(0)
+  expect(load(home.payload)('.defra-header__service-name').is('a[href="/"]')).toBe(true)
+  expect(home.request.yar.get('reportedIssue')).toBeNull()
 })

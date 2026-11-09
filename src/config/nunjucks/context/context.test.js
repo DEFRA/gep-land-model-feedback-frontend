@@ -74,7 +74,7 @@ describe('context and cache', () => {
               href: '/about'
             }
           ],
-          serviceName: 'Defra Group Land Model Issue Reporting',
+          serviceName: 'gep-land-model-feedback-frontend',
           serviceUrl: '/'
         })
       })
@@ -163,7 +163,7 @@ describe('context and cache', () => {
               href: '/about'
             }
           ],
-          serviceName: 'Defra Group Land Model Issue Reporting',
+          serviceName: 'gep-land-model-feedback-frontend',
           serviceUrl: '/'
         })
       })

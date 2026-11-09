@@ -16,6 +16,8 @@ const report = {
   answers: { submitterEmail: 'reporter@example.com', files: [{ filename: 'evidence.png', s3Key: 'private-key', uploadId: '11111111-1111-4111-8111-111111111111', fileId: '22222222-2222-4222-8222-222222222222' }, { filename: 'details.pdf', uploadId: '11111111-1111-4111-8111-111111111111', fileId: '33333333-3333-4333-8333-333333333333' }] }
 }
 const rows = [{ label: 'Issue type', lines: ['Data issue'] }, { label: 'Description', lines: ['First line', 'Second line'] }, { label: 'Files', lines: ['evidence.png', 'details.pdf'] }]
+const fileLinks = report.answers.files.map(file => `[${file.filename}](${config.get('appBaseUrl')}/evidence/download/${file.uploadId}/${file.fileId})`)
+const plainAnswers = '## Issue type\nData issue\n\n## Description\nFirst line\nSecond line\n\n## Files\nevidence.png\ndetails.pdf'
 const logger = { info: vi.fn(), warn: vi.fn() }
 beforeEach(() => {
   delete report.notification
@@ -48,9 +50,9 @@ test('uses the Notify SDK to send the reference, exact answer text and authentic
         email_subject: 'New ATLAS report - 123456781234',
         reference: report.reference,
         submitter_email: 'reporter@example.com',
-        answers: '## Issue type\nData issue\n\n## Description\nFirst line\nSecond line\n\n## Files\nevidence.png\ndetails.pdf',
-        include_file_downloads: 'yes',
-        file_downloads: `[evidence.png](${config.get('appBaseUrl')}/evidence/download/11111111-1111-4111-8111-111111111111/22222222-2222-4222-8222-222222222222)\n\n[details.pdf](${config.get('appBaseUrl')}/evidence/download/11111111-1111-4111-8111-111111111111/33333333-3333-4333-8333-333333333333)`
+        answers: `## Issue type\nData issue\n\n## Description\nFirst line\nSecond line\n\n## Files\n${fileLinks.join('\n')}`,
+        include_file_downloads: 'no',
+        file_downloads: ''
       }
     }
   })
@@ -58,8 +60,11 @@ test('uses the Notify SDK to send the reference, exact answer text and authentic
 })
 
 test('provides a no-files value for the template', async () => {
-  await sendIssueEmail({ ...report, answers: { files: [] } }, rows, logger)
-  expect(transport.mock.calls[0][0].data.personalisation.file_downloads).toBe('No files added')
+  await sendIssueEmail({ ...report, answers: { ...report.answers, files: [] } }, rows, logger)
+  for (const [options] of transport.mock.calls) {
+    expect(options.data.personalisation.answers).toContain('## Files\nNo files added')
+    expect(options.data.personalisation.answers).not.toContain('/evidence/download/')
+  }
 })
 
 test.each([null, undefined])('provides an explicit fallback when a submitter email is unavailable: %j', async submitterEmail => {
@@ -130,12 +135,15 @@ test('rejects a response without a notification ID without pretending the email 
 test('escapes filenames so they cannot replace the email download destination', async () => {
   const file = { ...report.answers.files[0], filename: 'Evidence [map](https://untrusted.example)!.png' }
   await sendIssueEmail({ ...report, answers: { ...report.answers, files: [file] } }, rows, logger)
-  const { file_downloads: links } = transport.mock.calls[0][0].data.personalisation
+  const { answers: links } = transport.mock.calls[0][0].data.personalisation
   expect(links).toContain('Evidence \\[map\\]\\(https://untrusted.example\\)\\!.png')
   expect(links).toContain(`](${config.get('appBaseUrl')}/evidence/download/${file.uploadId}/${file.fileId})`)
+  const copy = transport.mock.calls[1][0].data.personalisation.answers
+  expect(copy).not.toContain('/evidence/download/')
+  expect(copy).toContain('Evidence \\[map\\]\\(https://untrusted.example\\)\\!.png')
 })
 
-test('uses one template and hides the entire downloads section in the submitter copy', async () => {
+test('uses linked filenames for support and plain filenames for the submitter in the existing Files section', async () => {
   await sendIssueEmail(report, rows, logger)
   const [support, copy] = transport.mock.calls.map(([options]) => options.data)
   expect(copy).toEqual({
@@ -146,12 +154,16 @@ test('uses one template and hides the entire downloads section in the submitter 
       email_subject: support.personalisation.email_subject,
       reference: report.reference,
       submitter_email: report.answers.submitterEmail,
-      answers: support.personalisation.answers,
+      answers: plainAnswers,
       include_file_downloads: 'no',
       file_downloads: ''
     }
   })
-  expect(support.personalisation.include_file_downloads).toBe('yes')
+  expect(support.personalisation.include_file_downloads).toBe('no')
+  expect(support.personalisation.file_downloads).toBe('')
+  expect(support.personalisation.answers).toContain(`## Files\n${fileLinks.join('\n')}`)
+  expect(support.personalisation.answers.match(/## Files\n/g)).toHaveLength(1)
+  expect(support.personalisation.answers).not.toContain('File downloads')
   expect(JSON.stringify(copy)).not.toMatch(/\/evidence\/download\/|private-key/)
   await sendIssueEmail(report, rows, logger)
   expect(transport).toHaveBeenCalledTimes(2)

@@ -1,3 +1,4 @@
+import { sendIssueEmail } from '../issue-reported/email.js'
 import { createJourneyClient } from '#/server/common/test-helpers/journey-client.js'
 vi.mock('#/server/routes/report-issue/issue-reported/email.js', () => ({ sendIssueEmail: vi.fn(async () => ({ id: 'notify-id', submitterCopy: { id: 'copy-id', recipient: 'reporter@example.com' }, recipient: 'atlas-support@example.com' })) }))
 import { load } from 'cheerio'
@@ -65,8 +66,9 @@ test('uses the catalogue name, restores selection and routes Other through the g
   expect($('.govuk-summary-list__value').text()).toContain('Near the village')
   expect($('.govuk-summary-list__key').text()).not.toContain('Incorrect attributes')
   const submitted = await submit('/report-issue/check-your-answers', {})
-  expect(submitted.request.yar.get('reportedIssue').answers).toMatchObject({ dataset: 'other', datasetOtherId: 'woodland-id', datasetOtherTitle: 'Ancient woodland', issueWhere: 'Near the village' })
-  expect(submitted.request.yar.get('reportedIssue').answers).not.toHaveProperty('attributes')
+  expect(sendIssueEmail.mock.calls.at(-1)[0].answers).toMatchObject({ dataset: 'other', datasetOtherId: 'woodland-id', datasetOtherTitle: 'Ancient woodland', issueWhere: 'Near the village' })
+  expect(sendIssueEmail.mock.calls.at(-1)[0].answers).not.toHaveProperty('attributes')
+  expect(submitted.request.yar.get('reportedIssue')).not.toHaveProperty('answers')
 })
 
 test('changing back to Land Model clears the saved Other selection', async () => {

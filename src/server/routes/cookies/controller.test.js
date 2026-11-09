@@ -67,7 +67,7 @@ describe('Cookies route', () => {
     const $ = cheerio.load(response.payload)
 
     expect($('title').text()).toContain('Cookies')
-    expect($('title').text()).toContain(config.get('serviceDisplayName'))
+    expect($('title').text()).toContain('Defra Group Land Model Issue Reporting')
   })
 
   test('GET /cookies shows analytics radio buttons', async () => {
