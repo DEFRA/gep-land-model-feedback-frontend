@@ -33,12 +33,13 @@ import { validateProductionConfig } from './common/helpers/validate-production-c
 export async function createServer () {
   setupProxy()
   validateProductionConfig(config)
+  const authRequired = config.get('auth.required')
   const localAuthBypassHost = getLocalAuthBypassHost()
   const server = hapi.server({
     host: localAuthBypassHost ?? config.get('host'),
     port: config.get('port'),
     routes: {
-      auth: localAuthBypassHost ? false : { mode: 'required' },
+      auth: authRequired ? { mode: 'required' } : false,
       validate: {
         options: {
           abortEarly: false
@@ -86,8 +87,8 @@ export async function createServer () {
     pulse
   ])
 
-  if (localAuthBypassHost) {
-    server.logger.warn('Authentication is disabled for local development; listening on loopback only')
+  if (!authRequired) {
+    server.logger.warn('Authentication is disabled (AUTH_REQUIRED=false); application routes are accessible without sign-in')
   }
 
   const credentialProvider = config.get('cognito.enabled')
@@ -96,10 +97,7 @@ export async function createServer () {
 
   await server.register([
     sessionCache,
-    credentialProvider,
-    oidcClient,
-    federatedOidc,
-    sessionStrategy,
+    ...(authRequired ? [credentialProvider, oidcClient, federatedOidc, sessionStrategy] : []),
     nunjucksConfig,
     Scooter,
     contentSecurityPolicy,

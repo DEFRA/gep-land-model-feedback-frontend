@@ -10,11 +10,23 @@ Restart the frontend after editing `.env`.
 Authentication is required by default. Keycloak imports a local realm containing
 the **dev / dev** user; its admin console uses **admin / admin**.
 
-Set `AUTH_REQUIRED=false` to bypass authentication for loopback local development.
-This setting cannot disable authentication in deployed environments. Keep
-`APP_BASE_URL=http://localhost:3004` for the local redirects and cookie settings.
+Set `AUTH_REQUIRED=false` to bypass authentication, including in a deployed test
+environment while Cognito setup is pending. Restart or redeploy after changing it.
+In this mode Cognito/OIDC plugins and sign-in/sign-out routes are not registered,
+and users can access application routes without signing in. No Cognito identity
+pool or OIDC configuration is required. Use this only on a test deployment where
+unauthenticated access is intended; restore `AUTH_REQUIRED=true` and redeploy to
+require sign-in again. Authentication remains enabled by default.
 
-For CDP deployments, configure the following through deployment configuration:
+Production still requires `SESSION_COOKIE_PASSWORD`, `SESSION_COOKIE_SECURE=true`,
+and a trusted HTTPS `APP_BASE_URL`, because the workflow still uses sessions and
+CSRF protection. Reports submitted without sign-in have `Not available` for the
+user email address.
+
+Local loopback development still binds to loopback when auth is disabled. Keep
+`APP_BASE_URL=http://localhost:3004` for local development.
+
+For CDP deployments with authentication enabled, configure the following through deployment configuration:
 
 - `SESSION_COOKIE_PASSWORD`: a unique, randomly generated secret of at least
   32 characters, held in the deployment secret store. The public development
@@ -29,8 +41,9 @@ Viewer. Startup configures both the Undici dispatcher and `global-agent` before
 creating the server or making authentication requests. The current CDP frontend
 template no longer includes this helper; the viewer implementation is copied unchanged.
 
-Production startup rejects unsafe values for these settings. Local Keycloak and
-`AUTH_REQUIRED=false` remain available in development. A fresh sign-in and sign-out
+Production startup rejects unsafe session and app URL settings in both modes,
+and validates Cognito/OIDC settings when authentication is enabled. Local Keycloak
+remains available in development. A fresh sign-in and sign-out
 clear the previous workflow's answers, uploaded-file references and receipt.
 See `src/config/config.js` for the full schema and [the security review](security-review.md)
 for verification scope and deployment checks.

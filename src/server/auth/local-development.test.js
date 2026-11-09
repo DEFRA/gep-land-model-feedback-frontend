@@ -5,9 +5,9 @@ describe.each([
   ['development', undefined, 'http://localhost:3004', false],
   ['development', 'true', 'http://localhost:3004', false],
   ['development', 'false', 'http://localhost:3004', true],
-  ['development', 'false', 'https://deployed.example.com', false],
-  ['production', 'false', 'http://localhost:3004', false],
-  ['test', 'false', 'http://localhost:3004', false]
+  ['development', 'false', 'https://deployed.example.com', true],
+  ['production', 'false', 'https://deployed.example.com', true],
+  ['test', 'false', 'http://localhost:3004', true]
 ])('auth in %s with AUTH_REQUIRED=%s and %s', (nodeEnv, required, baseUrl, bypass) => {
   let server
   beforeAll(async () => {
@@ -34,8 +34,13 @@ describe.each([
     vi.resetModules()
   })
 
-  test('only bypasses authentication for explicitly opted-out local development', async () => {
-    const discovery = vi.spyOn(server.oidc, 'getConfig')
+  test('bypasses sign-in and identity providers only when explicitly disabled', async () => {
+    const discovery = bypass ? vi.fn() : vi.spyOn(server.oidc, 'getConfig')
+    if (bypass) {
+      expect(server.oidc).toBeUndefined()
+      expect(server.auth.settings.default).toBeNull()
+      expect((await server.inject('/auth/login')).statusCode).toBe(404)
+    }
     const page = await server.inject('/')
     expect(page.statusCode).toBe(bypass ? 200 : 302)
     const json = await server.inject({ url: '/', headers: { accept: 'application/json' } })
@@ -45,7 +50,11 @@ describe.each([
       expect(page.headers.location).toMatch(/^\/auth\/login/)
       return
     }
-    expect(server.info.host).toBe('127.0.0.1')
+    if (nodeEnv === 'development' && baseUrl.includes('localhost')) {
+      expect(server.info.host).toBe('127.0.0.1')
+    } else {
+      expect(server.info.host).toBe('0.0.0.0')
+    }
     const $ = load(page.payload)
     expect($('.defra-header__user-name, .defra-header__sign-out')).toHaveLength(0)
     const cookie = page.headers['set-cookie'].map((value) => value.split(';')[0]).join('; ')

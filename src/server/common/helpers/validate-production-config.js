@@ -1,18 +1,20 @@
 const MIN_SESSION_PASSWORD_LENGTH = 32
 
-/** Refuse development authentication and weak session settings in deployed services. */
+/** Require secure session settings and, when enabled, deployed authentication. */
 export function validateProductionConfig (config) {
   if (!config.get('isProduction') || config.get('isTest')) {
     return
   }
 
   validateSessionSettings(config)
+  validateTrustedOrigin(config, 'appBaseUrl')
+  if (!config.get('auth.required')) {
+    return
+  }
   if (!config.get('cognito.enabled') || !config.get('cognito.identityPoolId')) {
     throw new Error('Production requires Cognito client assertions and a configured identity pool')
   }
-  for (const name of ['appBaseUrl', 'oidc.wellKnownConfigurationUrl']) {
-    validateTrustedOrigin(config, name)
-  }
+  validateTrustedOrigin(config, 'oidc.wellKnownConfigurationUrl')
 }
 
 function validateSessionSettings (config) {

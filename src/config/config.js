@@ -263,7 +263,7 @@ export const config = convict({
   },
   auth: {
     required: {
-      doc: 'Require authentication; false is honoured only for loopback local development',
+      doc: 'Require authentication; false bypasses sign-in and skips Cognito/OIDC setup in all environments',
       format: Boolean,
       default: true,
       env: 'AUTH_REQUIRED'

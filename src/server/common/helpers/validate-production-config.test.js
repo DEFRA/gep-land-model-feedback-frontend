@@ -2,6 +2,7 @@ import { validateProductionConfig } from './validate-production-config.js'
 
 const valid = {
   isProduction: true,
+  'auth.required': true,
   isTest: false,
   'session.cookie.password': 'a-unique-deployment-secret-with-at-least-32-characters',
   'session.cookie.secure': true,
@@ -33,5 +34,22 @@ test.each([
 test.each(['appBaseUrl', 'oidc.wellKnownConfigurationUrl'])('requires trusted HTTPS for %s', key => {
   for (const value of ['invalid', 'http://localhost:8084', 'https://user:password@example.com', 'https://example.com/#fragment']) {
     expect(() => validateProductionConfig(settings({ [key]: value }))).toThrow('Production requires')
+  }
+})
+
+test('allows deployed bypass without Cognito or OIDC but retains session and app URL checks', () => {
+  const bypass = {
+    'auth.required': false,
+    'cognito.enabled': false,
+    'cognito.identityPoolId': '',
+    'oidc.wellKnownConfigurationUrl': 'invalid'
+  }
+  expect(() => validateProductionConfig(settings(bypass))).not.toThrow()
+  for (const [key, value] of [
+    ['session.cookie.password', 'short'],
+    ['session.cookie.secure', false],
+    ['appBaseUrl', 'http://example.com']
+  ]) {
+    expect(() => validateProductionConfig(settings({ ...bypass, [key]: value }))).toThrow('Production requires')
   }
 })
