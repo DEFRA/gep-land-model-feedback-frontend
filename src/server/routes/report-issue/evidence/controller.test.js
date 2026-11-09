@@ -84,13 +84,14 @@ test('pending scans show a refresh link enhanced by JavaScript and block review 
   }
 })
 
-test('shows configured restrictions and applies MIME types to the GOV.UK file upload', async () => {
+test('shows friendly file type labels while retaining MIME values for the file picker', async () => {
   config.set('uploader.maxFileSizeMB', 2.5)
-  config.set('uploader.allowedMimeTypes', ['application/pdf', 'image/png'])
+  const types = ['application/pdf', 'image/png', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/x-custom', 'image/jpeg', 'image/jpg']
+  config.set('uploader.allowedMimeTypes', types)
   const $ = load((await start()).payload)
-  expect($('#evidence-files').attr('accept')).toBe('application/pdf, image/png')
+  expect($('#evidence-files').attr('accept')).toBe(types.join(', '))
   expect($('#evidence-files-hint').text()).toContain('2.5 MB or smaller')
-  expect($('#evidence-files-hint').text()).toContain('Allowed file types: application/pdf, image/png')
+  expect($('#evidence-files-hint').text()).toContain('Allowed file types: PDF, PNG, XLSX, application/x-custom, JPEG.')
 })
 
 test('does not restrict the file picker when the MIME allowlist is empty', async () => {
@@ -270,10 +271,10 @@ test('Continue without a pending upload reaches review with no evidence', async 
   expect(response.request.yar.get('evidenceFiles')).toBeNull()
 })
 
-test('shows configured exclusions without changing the MIME allowlist', async () => {
+test('supplies exclusions to validation without displaying them in the guidance', async () => {
   config.set('uploader.excludedFileExtensions', ['.exe', '.bat'])
   const $ = load((await start()).payload)
-  expect($('#evidence-files-hint').text()).toContain('Files ending in .exe, .bat are not allowed')
+  expect($('#evidence-files-hint').text()).not.toMatch(/Files ending in|\.exe|\.bat/)
   expect($('form[enctype="multipart/form-data"]').attr('data-excluded-file-extensions')).toBe('.exe, .bat')
   expect($('[data-file-exclusion-summary]').attr('hidden')).toBeDefined()
 })
