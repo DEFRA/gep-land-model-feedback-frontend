@@ -1,4 +1,5 @@
 import inert from '@hapi/inert'
+import { evidenceDownload } from '../routes/evidence-download/index.js'
 import { auth } from '../auth/index.js'
 import { config } from '#/config/config.js'
 
@@ -21,7 +22,7 @@ export const router = {
       await server.register([health])
 
       // Application specific routes, add your own routes here
-      await server.register([...(config.get('auth.required') ? [auth] : []), home, reportIssue, about, cookies, privacy, accessibilityStatement])
+      await server.register([...(config.get('auth.required') ? [auth] : []), home, reportIssue, evidenceDownload, about, cookies, privacy, accessibilityStatement])
 
       // Static assets
       if (!config.get('isProduction') && !config.get('isTest')) {

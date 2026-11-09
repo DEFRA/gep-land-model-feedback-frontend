@@ -89,6 +89,83 @@ Set `GOOGLE_TAG_MANAGER_KEY` to enable analytics and the optional cookie control
 When it is empty, the optional-cookie banner and analytics controls on the Cookies
 page are hidden.
 
+## Evidence downloads
+
+Configure `EVIDENCE_DOWNLOAD_AAD_ROLE` with the exact, case-sensitive AAD app-role
+value that should permit evidence downloads, for example `Evidence.Reader`.
+An empty value denies role-based downloads. This role must appear in the validated OIDC
+ID token's `roles` array. Claims and roles are copied into the server-side user session at
+sign-in and updated when a refreshed ID token provides claims. If a refresh does
+not include an ID token, roles remain those from sign-in. Users should sign in
+again after role assignments change. Group object IDs are not currently checked;
+AAD groups can be assigned the app role, or the claim mapping can be adapted once
+the identity team's token shape is confirmed.
+
+`GET /evidence/download/{uploadId}/{fileId}` requires a signed-in session with that
+role. Unauthenticated visitors are sent to sign-in and returned to the download
+path. Signed-in users without the role receive 403 unless the testing override is
+enabled. `AUTH_REQUIRED=false` always
+disables downloads, even though other application pages remain usable. A role
+holder can download any clean evidence object in the configured bucket's
+`evidence/` prefix, independently of the uploader's browser session. UUIDs identify
+files; knowing them alone does not grant access.
+
+For remote development testing, set:
+
+```dotenv
+EVIDENCE_DOWNLOAD_ALLOW_ALL_USERS=true
+```
+
+This Boolean setting defaults to `false`. Enabling it allows every signed-in user
+to download evidence, even if no download role is configured. It does not allow
+anonymous downloads or override `AUTH_REQUIRED=false`. Restart or redeploy after
+changing it. Set it back to `false` to restore the role check.
+
+Download access logs intentionally include all validated ID-token identity claims
+(including names, email addresses, roles, groups and custom claims) to diagnose
+identity mapping. Claims are stored in the server-side session separately from
+access and refresh tokens; those tokens are not included in these logs. Existing
+sessions created before this change have no stored claims: sign out and sign in
+again to populate them. Refreshed ID-token claims replace the stored claims when
+available.
+
+Search for `Evidence download access allowed` or `Evidence download access denied`
+to see claims, the configured role and whether the testing override was used.
+Other events report download start, stream end, stream failure, missing objects,
+and storage or metadata failures. A stream-end event means the S3 stream ended,
+not confirmation that the user saved the file. These events are structured under
+`evidenceDownload` and also printed as single console lines with JSON diagnostics
+in the message. As with OIDC diagnostics, the console fallback bypasses
+`LOG_ENABLED` and `LOG_LEVEL`. Unauthenticated visitors are redirected before the
+handler and have no identity claims to log.
+
+CDP Uploader already places clean files in
+`evidence/<upload UUID>/<file UUID>` and records original names in `filename` or
+RFC 2047 `encodedfilename` S3 metadata. The application reads those existing
+objects; it does not copy, rename or tag them. The stored key has no extension,
+while the email label and downloaded attachment retain the original filename and
+extension. Downloads stream through the application as attachments, with caching
+disabled and no inline rendering. Missing objects return 404; S3 failures return a
+generic 503. Existing report links work for as long as their objects are retained.
+
+The frontend's deployment IAM role needs `s3:GetObject` on
+`arn:aws:s3:::<EVIDENCE_S3_BUCKET>/evidence/*`. For SSE-KMS encrypted buckets it also
+needs `kms:Decrypt` for the bucket's key. This feature needs no write or list
+permissions. The bucket must remain private. AWS credentials and region use the
+standard SDK provider chain; configure `AWS_REGION` as needed. Leave
+`EVIDENCE_S3_ENDPOINT` unset in deployments. For local LocalStack access, use:
+
+```dotenv
+EVIDENCE_S3_ENDPOINT=http://localhost:4566
+AWS_REGION=eu-west-2
+AWS_ACCESS_KEY_ID=test
+AWS_SECRET_ACCESS_KEY=test
+```
+
+Tests use synthetic identity claims and mocked S3/Notify calls. Confirm a real
+AAD role-bearing session and the service's bucket permissions in the target
+environment before relying on email downloads there.
+
 ## GOV.UK Notify
 
 Configure the existing destination mailbox and Notify settings:
@@ -117,13 +194,15 @@ Create a Notify **email** template with this subject:
 For its body, use:
 
 ```text
-Issue reference: ((reference))
+## Issue reference
+((reference))
 
-Submitted by: ((submitter_email))
+## Submitted by
+((submitter_email))
 
 ((answers))
 
-File downloads
+## File downloads
 ((file_downloads))
 ```
 
@@ -133,12 +212,18 @@ It cannot be overridden through form inputs. When the identity provider supplies
 no email address, or local authentication is disabled, its value is `Not available`.
 The email address is included in Notify personalisation, not application logs.
 
+`answers` formats each label as a Notify Markdown subheading (`## Label`), followed
+by its value on the next line, with a blank line between items. Use the template
+body above for existing templates too, so reference, submitter and file downloads
+follow the same heading-then-value layout. The subject remains `((email_subject))`.
+
 `answers` contains the same labels and values shown on Check your answers, including
 multiline descriptions, the selected workflow's answers and filenames. The page
-and email share the same row builder. `file_downloads` lists each filename followed
-by `Download link not yet available`, or `No files added`. These are placeholders;
-no download endpoint, signed link or attachment delivery is implemented. Private
-S3 keys are not included in the email.
+and email share the same row builder. `file_downloads` contains Notify Markdown
+links labelled with each original filename, or `No files added`. Keep the existing
+`((file_downloads))` placeholder in the email template. Each link goes to the
+application's authenticated endpoint, rather than S3 directly. No email attachments
+or presigned S3 URLs are sent.
 
 Requests time out after 10 seconds. Temporary network errors, HTTP 408, 429 and
 5xx responses are retried up to three attempts in total, with 1-second then
@@ -164,7 +249,7 @@ dashboard to investigate delivery status using the reference.
 For local testing, configure a Notify test API key and an email template with the
 placeholders above, then complete either workflow. Notify test keys simulate sending
 without delivering emails. The automated tests use mocked transport and never send
-real emails; they cover payload content, file placeholders, retries, timeouts,
+real emails; they cover payload content, file links, retries, timeouts,
 permanent errors, failed-submit recovery and confirmation gating.
 
 Receipts remain session-scoped; no external case system or durable report store is

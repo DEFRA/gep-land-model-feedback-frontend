@@ -80,8 +80,9 @@ export const evidenceCompleteController = {
     request.yar.clear(EVIDENCE_UPLOAD_KEY)
     if (errors.length) {
       request.yar.flash('evidenceErrors', errors)
+      return h.redirect(evidenceReturnPath(active)).code(statusCodes.seeOther)
     }
-    return h.redirect(evidenceReturnPath(active)).code(statusCodes.seeOther)
+    return h.redirect('/report-issue/check-your-answers').code(statusCodes.seeOther)
   }
 }
 

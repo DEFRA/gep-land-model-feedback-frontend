@@ -53,7 +53,7 @@ test.each(['data', 'technical'])('%s description saves trimmed text and opens th
   expect($('form[enctype="multipart/form-data"]').attr('action')).toMatch(/^http:\/\/localhost:7337\/upload-and-scan\//)
   expect($('form[enctype="multipart/form-data"] input[name="crumb"]')).toHaveLength(0)
   expect($('#evidence-files-hint').text()).toContain('100 MB')
-  expect($('a.govuk-button').attr('href')).toBe('/report-issue/check-your-answers')
+  expect($('form[data-evidence-continue]').attr('data-evidence-continue')).toBe('/report-issue/check-your-answers')
   expect($('.govuk-back-link').attr('href')).toBe(descriptionPath)
   const back = load((await visit(descriptionPath)).payload)
   expect(back('#issue-description').val()).toBe('The dataset download does not start.')

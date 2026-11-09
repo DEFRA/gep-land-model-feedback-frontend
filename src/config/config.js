@@ -409,6 +409,26 @@ export const config = convict({
       env: 'EVIDENCE_ALLOWED_MIME_TYPES'
     }
   },
+  evidenceDownload: {
+    allowAllUsers: {
+      doc: 'Allow any authenticated user to download evidence without the AAD role; for development testing',
+      format: Boolean,
+      default: false,
+      env: 'EVIDENCE_DOWNLOAD_ALLOW_ALL_USERS'
+    },
+    aadRole: {
+      doc: 'Exact AAD app role required to download evidence unless allowAllUsers is enabled; empty denies role-based access',
+      format: String,
+      default: '',
+      env: 'EVIDENCE_DOWNLOAD_AAD_ROLE'
+    },
+    s3Endpoint: {
+      doc: 'Optional S3 endpoint for local development; empty uses AWS',
+      format: String,
+      default: '',
+      env: 'EVIDENCE_S3_ENDPOINT'
+    }
+  },
   geonetwork: {
     apiUrl: {
       doc: 'GeoNetwork REST API base URL',

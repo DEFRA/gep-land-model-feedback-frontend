@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { vi } from 'vitest'
 import { initCookieBanner, initCookiesPage } from './cookies.js'
+import { initScanRefresh } from './scan-refresh.js'
+import { initEvidenceFiles } from './evidence-files.js'
 import { createAll, Button, Checkboxes, CharacterCount, ErrorSummary, FileUpload, Radios, SkipLink } from 'govuk-frontend'
 
 vi.mock('govuk-frontend', () => ({
@@ -13,12 +15,16 @@ vi.mock('govuk-frontend', () => ({
   Radios: class {},
   SkipLink: class {}
 }))
+vi.mock('./evidence-files.js', () => ({ initEvidenceFiles: vi.fn() }))
+vi.mock('./scan-refresh.js', () => ({ initScanRefresh: vi.fn() }))
 vi.mock('./cookies.js', () => ({ initCookieBanner: vi.fn(), initCookiesPage: vi.fn() }))
 
 test('boots cookie consent and the GOV.UK controls used by the application', async () => {
   await import('./application.js')
   expect(initCookieBanner).toHaveBeenCalledOnce()
   expect(initCookiesPage).toHaveBeenCalledOnce()
+  expect(initScanRefresh).toHaveBeenCalledOnce()
+  expect(initEvidenceFiles).toHaveBeenCalledOnce()
   for (const component of [Button, Checkboxes, CharacterCount, ErrorSummary, FileUpload, Radios, SkipLink]) {
     expect(createAll).toHaveBeenCalledWith(component)
   }
