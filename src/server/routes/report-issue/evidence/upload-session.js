@@ -1,3 +1,6 @@
+import { config } from '#/config/config.js'
+import { isExcludedFile, fileExclusionMessage } from '#/client/common/helpers/file-exclusions.js'
+import { getEvidenceFiles } from '../helpers/answers.js'
 import { statusCodes } from '#/server/common/constants/status-codes.js'
 import { getUploadStatus } from '#/server/common/services/uploader/client.js'
 
@@ -14,6 +17,13 @@ export function uploadProblem (request, h, retryUrl = evidencePath) {
 
 // Used at review and Submit as well as the evidence page: pending scans cannot be skipped.
 export async function checkEvidenceUpload (request, h) {
+  const files = getEvidenceFiles(request)
+  const excluded = files.filter(file => isExcludedFile(file.filename, config.get('uploader.excludedFileExtensions')))
+  if (excluded.length) {
+    request.yar.set('evidenceFiles', files.filter(file => !excluded.includes(file)))
+    request.yar.flash('evidenceErrors', excluded.map(file => fileExclusionMessage(file.filename)))
+    return h.redirect(evidencePath).code(statusCodes.seeOther)
+  }
   const active = request.yar.get('evidenceUpload')
   if (!active) {
     return null

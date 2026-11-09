@@ -28,6 +28,21 @@ export function registerConfigFormats (convict) {
   })
 
   convict.addFormat({
+    name: 'file-extension-list',
+    validate (value) {
+      if (!Array.isArray(value) || value.some(extension => typeof extension !== 'string' || !/^\.[a-z0-9]+(?:\.[a-z0-9]+)*$/.test(extension))) {
+        throw new Error('Use comma-separated file extensions, such as .exe,.bat, or leave empty')
+      }
+    },
+    coerce (value) {
+      if (typeof value !== 'string') {
+        return value
+      }
+      return value.trim() ? [...new Set(value.split(',').map(extension => `.${extension.trim().toLowerCase().replace(/^\./, '')}`))] : []
+    }
+  })
+
+  convict.addFormat({
     name: 'optional-uuid',
     validate (value) {
       if (value !== '' && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) {

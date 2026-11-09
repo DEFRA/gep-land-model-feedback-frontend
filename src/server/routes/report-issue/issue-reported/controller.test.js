@@ -1,7 +1,8 @@
 import { createJourneyClient } from '#/server/common/test-helpers/journey-client.js'
-vi.mock('#/server/routes/report-issue/issue-reported/email.js', () => ({ sendIssueEmail: vi.fn(async () => ({ id: 'notify-id', recipient: 'atlas-support@example.com' })) }))
+vi.mock('#/server/routes/report-issue/issue-reported/email.js', () => ({ sendIssueEmail: vi.fn(async () => ({ id: 'notify-id', submitterCopy: { id: 'copy-id', recipient: 'reporter@example.com' }, recipient: 'atlas-support@example.com' })) }))
 vi.mock('#/server/common/services/geonetwork/client.js', () => ({ listDatasets: vi.fn(async () => []) }))
 import { sendIssueEmail } from '#/server/routes/report-issue/issue-reported/email.js'
+import { submitIssueController } from './controller.js'
 import { load } from 'cheerio'
 import { createServer } from '#/server/server.js'
 import { config } from '#/config/config.js'
@@ -19,7 +20,7 @@ beforeAll(async () => {
 afterAll(async () => server.stop({ timeout: 0 }))
 beforeEach(() => {
   client = createJourneyClient(server)
-  sendIssueEmail.mockReset().mockResolvedValue({ id: 'notify-id', recipient: 'atlas-support@example.com' })
+  sendIssueEmail.mockReset().mockResolvedValue({ id: 'notify-id', submitterCopy: { id: 'copy-id', recipient: 'reporter@example.com' }, recipient: 'atlas-support@example.com' })
   config.set('supportMailboxAddress', 'atlas-support@example.com')
 })
 afterEach(() => config.set('supportMailboxAddress', originalMailbox))
@@ -162,7 +163,7 @@ test('waits for Notify acceptance before redirecting to confirmation', async () 
   sending.then(() => { finished = true })
   await vi.waitFor(() => expect(accept).toBeTypeOf('function'))
   expect(finished).toBe(false)
-  accept({ id: 'accepted-id', recipient: 'atlas-support@example.com' })
+  accept({ id: 'accepted-id', submitterCopy: { id: 'copy-id' }, recipient: 'atlas-support@example.com' })
   expect((await sending).headers.location).toBe(reportedPath)
 })
 
@@ -178,5 +179,76 @@ test('submission requires CSRF and authentication and confirmations stay within 
     const anonymous = await server.inject({ url, method })
     expect(anonymous.statusCode).toBe(302)
     expect(anonymous.headers.location).toMatch(/^\/auth\/login/)
+  }
+})
+
+test('persists support acceptance when the submitter copy fails and retries the incomplete submission', async () => {
+  await start('technical')
+  sendIssueEmail.mockImplementationOnce(async report => {
+    report.notification = { id: 'support-id', recipient: 'atlas-support@example.com' }
+    throw new Error('Submitter copy failed')
+  })
+  const failed = await submit(reviewPath)
+  expect(failed.statusCode).toBe(503)
+  expect(load(failed.payload)('h1').text()).toBe('There is a problem sending your confirmation email')
+  expect(failed.payload).toContain('Your issue report has been sent to support')
+  const receipt = failed.request.yar.get('reportedIssue')
+  expect(receipt.notification).toEqual({ id: 'support-id', recipient: 'atlas-support@example.com' })
+  expect((await visit(reportedPath)).headers.location).toBe(reviewPath)
+  sendIssueEmail.mockImplementationOnce(async report => {
+    expect(report).toMatchObject({ id: receipt.id, notification: { id: 'support-id' } })
+    return { ...report.notification, submitterCopy: { id: 'copy-id' } }
+  })
+  const retry = await submit(reviewPath)
+  expect(retry.headers.location).toBe(reportedPath)
+  expect((await visit(reportedPath)).statusCode).toBe(200)
+  await submit(reviewPath)
+  expect(sendIssueEmail).toHaveBeenCalledTimes(2)
+})
+
+test('stores the report before sending and makes support acceptance available while the copy is pending', async () => {
+  await start('technical')
+  let acceptCopy
+  sendIssueEmail.mockImplementationOnce(async (report, rows, logger, onAccepted) => {
+    // A separate request must see the saved receipt before the first send.
+    const beforeSend = (await visit(reportedPath)).request.yar.get('reportedIssue')
+    expect(beforeSend.id).toBe(report.id)
+    expect(beforeSend.notification).toBeUndefined()
+    report.notification = { id: 'support-id', recipient: 'atlas-support@example.com' }
+    await onAccepted()
+    await new Promise(resolve => { acceptCopy = resolve })
+    report.notification.submitterCopy = { id: 'copy-id' }
+    await onAccepted()
+    return report.notification
+  })
+  const sending = submit(reviewPath)
+  await vi.waitFor(() => expect(acceptCopy).toBeTypeOf('function'))
+  try {
+    const pending = await visit(reportedPath)
+    expect(pending.headers.location).toBe(reviewPath)
+    expect(pending.request.yar.get('reportedIssue').notification).toEqual({ id: 'support-id', recipient: 'atlas-support@example.com' })
+  } finally {
+    acceptCopy()
+  }
+  expect((await sending).headers.location).toBe(reportedPath)
+  expect((await visit(reportedPath)).statusCode).toBe(200)
+})
+
+test('does not send emails if the receipt cannot be saved and logs the safe failure stage', async () => {
+  const review = await start('technical')
+  const request = review.request
+  const commit = vi.spyOn(request.yar, 'commit').mockRejectedValue(new Error('private Redis connection string'))
+  const errorLog = vi.spyOn(request.logger, 'error')
+  const response = { code: vi.fn().mockReturnThis() }
+  const h = { view: vi.fn(() => response) }
+  try {
+    expect(await submitIssueController.handler(request, h)).toBe(response)
+    expect(response.code).toHaveBeenCalledWith(503)
+    expect(sendIssueEmail).not.toHaveBeenCalled()
+    expect(errorLog).toHaveBeenCalledWith({ reference: expect.any(String), failureStage: 'session', supportEmailAccepted: false, submitterCopyAccepted: false }, 'Unable to complete issue submission')
+    expect(JSON.stringify(errorLog.mock.calls)).not.toContain('private Redis')
+  } finally {
+    commit.mockRestore()
+    errorLog.mockRestore()
   }
 })

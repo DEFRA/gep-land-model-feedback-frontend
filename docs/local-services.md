@@ -30,10 +30,10 @@ uses the loopback development catalogue, not the configured deployment URL.
 
 ## Upload testing
 
-Choose one or more small files on the evidence page and select **Upload files**.
-Clean files appear under **Uploaded files** once checking completes. Upload a file
-whose name contains `virus` to test a simulated rejection. Configure size and MIME
-limits as described in [Configuration](configuration.md#evidence-uploads).
+Choose one or more small files on the evidence page and select **Continue**.
+Clean files are included on Check your answers after scanning. A filename
+containing `virus` triggers a simulated rejection. Configure size and MIME limits
+as described in [Configuration](configuration.md#evidence-uploads).
 
 Inspect stored objects with:
 
@@ -76,6 +76,3 @@ The combined file reuses the existing `atlas-feedback-geonetwork_catalogue-*`
 volumes. Previous local upload sessions and test uploads may need recreating.
 Compose may warn that these volumes belong to the previous project; the existing
 catalogue data is still reused.
-
-The separate `geonetwork:up`, `geonetwork:down`, `uploader:up` and `uploader:down`
-scripts have been replaced by `services:up` and `services:down`.

@@ -23,6 +23,7 @@ npm run dev
 
 Open [http://localhost:3004](http://localhost:3004) and sign in with **dev / dev**.
 To skip sign-in locally, set `AUTH_REQUIRED=false` in `.env` and restart the app.
+For local evidence downloads, set `S3_ENDPOINT=http://localhost:4567` in `.env`.
 
 [`compose.yml`](compose.yml) is the single file for all backing services.
 `npm run services:up` starts them, waits for health checks, then imports the
@@ -71,11 +72,13 @@ answers. Environment changes require restarting `npm run dev`.
 
 - [Configuration and Notify template setup](docs/configuration.md)
 - [Local services, sample data and troubleshooting](docs/local-services.md)
-- [Code organisation and development guidance](docs/development.md)
+- [Build and deployment guide](docs/development.md)
 
 ## Branching Strategy
 
-This project follows [Gitflow](https://defra.github.io/software-development-standards/guides/developer_workflows/#gitflow) with `develop` as the integration branch and `main` for production releases. Releases and hotfixes merge into `main` only - the [Auto Back-merge](.github/workflows/auto-back-merge.yml) workflow handles syncing `main` back into `develop` automatically. See [Contributing](CONTRIBUTING.md#branching) for full details.
+Use `develop` for feature integration and `main` for production releases.
+Release workflows publish artifacts for deployment through the CDP portal and
+handle versioning and back-merges. See [Contributing](CONTRIBUTING.md#branching).
 
 ## Contributing to this project
 

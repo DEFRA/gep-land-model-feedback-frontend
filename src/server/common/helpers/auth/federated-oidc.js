@@ -35,10 +35,16 @@ function scheme (_server, options) {
     authenticate: async function (request, h) {
       if (request.query.error) {
         logger.error('OIDC authorization error')
-        return Boom.unauthorized(request.query.error)
+        return Boom.unauthorized('Unable to sign in. Try again.')
       }
 
-      const oidcConfig = await request.server.oidc.getConfig()
+      let oidcConfig
+      try {
+        oidcConfig = await request.server.oidc.getConfig()
+      } catch (error) {
+        logOidcFailure(error, 'OIDC discovery failed')
+        return Boom.unauthorized('Unable to sign in. Try again.')
+      }
 
       const isPreLogin = !request.query.code
 
@@ -48,7 +54,7 @@ function scheme (_server, options) {
           return h.redirect(redirectTo).takeover()
         } catch (e) {
           logOidcFailure(e, 'OIDC pre-login failed')
-          return Boom.unauthorized(e.message)
+          return Boom.unauthorized('Unable to sign in. Try again.')
         }
       } else {
         try {
@@ -56,7 +62,7 @@ function scheme (_server, options) {
           return h.authenticated({ credentials })
         } catch (e) {
           logOidcFailure(e, 'OIDC post-login failed')
-          return Boom.unauthorized(e.message)
+          return Boom.unauthorized('Unable to sign in. Try again.')
         }
       }
     }

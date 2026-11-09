@@ -1,5 +1,13 @@
 import { config } from '#/config/config.js'
+import { isExcludedFile, fileExclusionMessage } from '#/client/common/helpers/file-exclusions.js'
 import { fileSchema } from './schema.js'
+
+const rejectionMessages = new Map([
+  ['FILE_VIRUS', 'The selected file contains a virus'],
+  ['FILE_EMPTY', 'The selected file is empty'],
+  ['FILE_INVALID_TYPE', 'The selected file type is not supported']
+])
+const uploadFailedMessage = 'The selected file could not be uploaded – try again'
 
 /** Validate uploader results before any attachments are added to the report. */
 export function parseUploadResults (status, uploadId) {
@@ -10,14 +18,21 @@ export function parseUploadResults (status, uploadId) {
   if (!results.length) {
     errors.push('Select a file')
   }
+  let rejectedByUploader = 0
   for (const file of results) {
     if (file?.hasError === true || file?.fileStatus === 'rejected') {
+      rejectedByUploader++
       errors.push(rejectedFileMessage(file))
       continue
     }
-    accepted.push(validateAcceptedFile(file, uploadId))
+    const validFile = validateAcceptedFile(file, uploadId)
+    if (isExcludedFile(validFile.filename, config.get('uploader.excludedFileExtensions'))) {
+      errors.push(fileExclusionMessage(validFile.filename))
+    } else {
+      accepted.push(validFile)
+    }
   }
-  if (!Number.isInteger(status.numberOfRejectedFiles) || status.numberOfRejectedFiles !== results.length - accepted.length) {
+  if (!Number.isInteger(status.numberOfRejectedFiles) || status.numberOfRejectedFiles !== rejectedByUploader) {
     throw new Error('Inconsistent evidence upload results')
   }
   return { accepted, errors }
@@ -31,7 +46,9 @@ function asFileList (files) {
 }
 
 function rejectedFileMessage (file) {
-  const message = typeof file.errorMessage === 'string' ? file.errorMessage : 'The selected file could not be uploaded – try again'
+  const message = file.errorCode === 'FILE_TOO_LARGE'
+    ? `The selected file must be ${config.get('uploader.maxFileSizeMB')} MB or smaller`
+    : rejectionMessages.get(file.errorCode) ?? uploadFailedMessage
   return typeof file.filename === 'string' ? `${file.filename}: ${message}` : message
 }
 
@@ -40,7 +57,7 @@ function validateAcceptedFile (file, uploadId) {
   if (error || file.fileStatus !== 'complete') {
     throw new Error('Incomplete evidence upload result')
   }
-  if (value.s3Bucket !== config.get('uploader.bucket') || !value.s3Key.startsWith(`evidence/${uploadId}/`)) {
+  if (value.s3Bucket !== config.get('uploader.bucket') || value.s3Key !== `evidence/${uploadId}/${value.fileId}`) {
     throw new Error('Evidence upload result belongs to a different destination')
   }
   return { ...value, uploadId }
