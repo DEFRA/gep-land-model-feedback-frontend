@@ -21,7 +21,7 @@ export const router = {
       await server.register([health])
 
       // Application specific routes, add your own routes here
-      await server.register([auth, home, reportIssue, about, cookies, privacy, accessibilityStatement])
+      await server.register([...(config.get('auth.required') ? [auth] : []), home, reportIssue, about, cookies, privacy, accessibilityStatement])
 
       // Static assets
       if (!config.get('isProduction') && !config.get('isTest')) {

@@ -41,7 +41,8 @@ installing dependencies. Run lint, tests with coverage, the frontend build and
 Yar stores workflow state in the configured cache rather than in cookies.
 Production requires Redis and rejects a process-local memory cache. Memory remains
 available for local development and offline tests. Authentication defaults to on;
-set `AUTH_REQUIRED=false` in your local environment to bypass it on loopback only.
+set `AUTH_REQUIRED=false` in your local environment to bypass it on loopback.
+The same flag supports deployed testing; see [configuration](configuration.md#authentication).
 
 
 ## Application behaviour
