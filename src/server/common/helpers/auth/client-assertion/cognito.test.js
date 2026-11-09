@@ -74,7 +74,7 @@ describe('#CognitoFederatedCredentialProvider', () => {
 
     try {
       await expect(provider.requestCognitoToken()).rejects.toBe(error)
-      expect(logError).toHaveBeenCalledExactlyOnceWith({
+      expect(logError).toHaveBeenCalledWith({
         awsError: {
           name: 'NotAuthorizedException',
           message: 'Not authorized for this identity pool',

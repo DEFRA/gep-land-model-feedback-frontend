@@ -2,11 +2,16 @@ import { createLogger, logExternalCall } from './logger.js'
 import { loggerOptions } from './logger-options.js'
 import { pino } from 'pino'
 
-const logger = vi.hoisted(() => ({ info: vi.fn(), debug: vi.fn() }))
+const logger = vi.hoisted(() => ({ info: vi.fn(), debug: vi.fn(), error: vi.fn() }))
 vi.mock('pino', () => ({ pino: vi.fn(() => logger) }))
 vi.mock('./logger-options.js', () => ({ loggerOptions: { level: 'debug' } }))
 
-afterEach(() => vi.unstubAllGlobals())
+let consoleError
+beforeEach(() => { consoleError = vi.spyOn(console, 'error').mockImplementation(() => {}) })
+afterEach(() => {
+  consoleError.mockRestore()
+  vi.unstubAllGlobals()
+})
 
 describe('external API logging', () => {
   test('uses the existing configured Pino logger', async () => {
@@ -22,7 +27,7 @@ describe('external API logging', () => {
     expect(logger.debug).toHaveBeenCalledWith({ service: 'test', operation: 'read' }, 'External API call started')
     const statusCode = response.status ?? response.statusCode ?? response.$metadata?.httpStatusCode
     const summary = { service: 'test', operation: 'read', durationMs: expect.any(Number), statusCode, outcome: statusCode >= 400 ? 'failure' : 'success' }
-    expect(logger.debug).toHaveBeenCalledWith(summary, 'External API call completed')
+    expect(logger.debug).toHaveBeenCalledWith(summary, statusCode >= 400 ? 'External API call failed' : 'External API call completed')
     expect(logger.info).toHaveBeenCalledExactlyOnceWith(summary, statusCode >= 400 ? 'External API call failed' : 'External API call completed')
   })
 
@@ -88,4 +93,38 @@ describe('external API logging', () => {
     expect(fetch).toHaveBeenCalledWith(url, options)
     expect(JSON.stringify([logger.info.mock.calls, logger.debug.mock.calls])).not.toContain('secret')
   })
+})
+
+test.each(['GeoNetwork', 'CDP Uploader', 'GOV.UK Notify', 'OIDC', 'Cognito'])('prints %s failures with diagnostics in one console line', async service => {
+  const error = Object.assign(new TypeError('https://user:secret@example.com'), {
+    code: 'ERR_NETWORK',
+    cause: { code: 'SELF_SIGNED_CERT_IN_CHAIN', message: 'private certificate', headers: { authorization: 'secret' } },
+    response: { status: 502, data: 'private response' }
+  })
+  await expect(logExternalCall(service, 'test operation', async () => { throw error })).rejects.toBe(error)
+  expect(consoleError).toHaveBeenCalledOnce()
+  const line = consoleError.mock.calls[0][0]
+  expect(line).not.toContain('\n')
+  const details = JSON.parse(line.slice('External API call failed: '.length))
+  expect(details).toEqual({ service, operation: 'test operation', statusCode: 502, durationMs: expect.any(Number), outcome: 'failure', name: 'TypeError', code: 'ERR_NETWORK', causeCode: 'SELF_SIGNED_CERT_IN_CHAIN' })
+  expect(logger.error).toHaveBeenCalledWith({ externalApiError: details }, 'External API call failed')
+  expect(JSON.stringify([logger.error.mock.calls, consoleError.mock.calls])).not.toMatch(/secret|private|example.com/)
+})
+
+test('prints resolved HTTP failures but stays quiet on successful calls', async () => {
+  const response = { status: 403, body: 'private response' }
+  expect(await logExternalCall('CDP Uploader', 'get upload status', async () => response)).toBe(response)
+  expect(JSON.parse(consoleError.mock.calls[0][0].split('failed: ')[1])).toMatchObject({ service: 'CDP Uploader', statusCode: 403, outcome: 'failure' })
+  consoleError.mockClear()
+  logger.error.mockClear()
+  await logExternalCall('CDP Uploader', 'get upload status', async () => ({ status: 200 }))
+  expect(consoleError).not.toHaveBeenCalled()
+  expect(logger.error).not.toHaveBeenCalled()
+})
+
+test('prints timeout diagnostics without unsafe codes or raw messages', async () => {
+  const error = Object.assign(new Error('secret timeout URL'), { name: 'TimeoutError', code: 'secret with spaces', cause: { code: 'https://secret.example.com' } })
+  await expect(logExternalCall('test', 'read', async () => { throw error })).rejects.toBe(error)
+  expect(consoleError.mock.calls[0][0]).toContain('TimeoutError')
+  expect(JSON.stringify([logger.error.mock.calls, consoleError.mock.calls])).not.toContain('secret')
 })

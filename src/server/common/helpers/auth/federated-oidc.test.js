@@ -290,7 +290,7 @@ describe('#federatedOidc', () => {
       try {
         const result = await authenticate(request, createMockH())
         expect(result.output.statusCode).toBe(401)
-        expect(logError).toHaveBeenCalledExactlyOnceWith({
+        expect(logError).toHaveBeenCalledWith({
           oidcError: {
             name: 'ResponseBodyError',
             message: 'Token endpoint rejected the client',
@@ -304,8 +304,9 @@ describe('#federatedOidc', () => {
           }
         }, 'OIDC post-login failed')
         expect(JSON.stringify(logError.mock.calls)).not.toContain('private-')
-        expect(console.error).toHaveBeenCalledOnce()
-        const [line] = vi.mocked(console.error).mock.calls[0]
+        expect(console.error).toHaveBeenCalledTimes(2)
+        expect(console.error).toHaveBeenCalledWith(expect.stringContaining('External API call failed: '))
+        const [line] = vi.mocked(console.error).mock.calls.find(([value]) => value.startsWith('OIDC post-login failed: '))
         expect(line).toMatch(/^OIDC post-login failed: /)
         expect(JSON.parse(line.replace(/^OIDC post-login failed: /, ''))).toMatchObject({
           name: 'ResponseBodyError',

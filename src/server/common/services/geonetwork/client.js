@@ -1,12 +1,36 @@
-import { logExternalCall } from '../../helpers/logging/logger.js'
+import { createLogger, logExternalCall } from '../../helpers/logging/logger.js'
 import { statusCodes } from '#/server/common/constants/status-codes.js'
 import { config } from '#/config/config.js'
 
 export const MAX_RESULTS = 500
 const REQUEST_TIMEOUT_MS = 10000
+const logger = createLogger()
 
 /** List dataset IDs and names for the selector, including any configured category. */
 export async function listDatasets () {
+  const startedAt = performance.now()
+  const context = { stage: 'request' }
+  try {
+    return await loadDatasets(context)
+  } catch (error) {
+    // Match OIDC's console fallback for hosting pipelines that drop custom fields.
+    // Raw messages, URLs and response bodies can contain credentials or catalogue data.
+    const safeCode = value => typeof value === 'string' && /^[A-Z][A-Z0-9_]{0,79}$/.test(value) ? value : undefined
+    const geonetworkError = {
+      ...context,
+      name: ['Error', 'TypeError', 'SyntaxError', 'TimeoutError', 'AbortError'].includes(error?.name) ? error.name : 'Error',
+      code: safeCode(error?.code),
+      causeCode: safeCode(error?.cause?.code),
+      durationMs: Math.round(performance.now() - startedAt)
+    }
+    const message = 'GeoNetwork list datasets failed'
+    logger.error({ geonetworkError }, message)
+    console.error(`${message}: ${JSON.stringify(geonetworkError)}`)
+    throw error
+  }
+}
+
+async function loadDatasets (context) {
   const categories = [...new Set(config.get('geonetwork.datasetCategories').map(value => value.trim()).filter(Boolean))]
   const filter = [{ term: { isTemplate: 'n' } }]
   if (categories.length) {
@@ -19,8 +43,9 @@ export async function listDatasets () {
   let total
   do {
     // Pagination is sequential: the validated page determines the next offset.
-    const page = await fetchDatasetPage(url, filter, from)
+    const page = await fetchDatasetPage(url, filter, from, context)
     total = page.total
+    context.stage = 'validate records'
     for (const hit of page.hits) {
       addDataset(hit, datasets, seen)
     }
@@ -29,7 +54,10 @@ export async function listDatasets () {
   return datasets
 }
 
-async function fetchDatasetPage (url, filter, from) {
+async function fetchDatasetPage (url, filter, from, context) {
+  context.stage = 'request'
+  context.from = from
+  delete context.statusCode
   const response = await logExternalCall('GeoNetwork', 'list datasets', () => fetch(url, {
     method: 'POST',
     headers: { 'content-type': 'application/json', accept: 'application/json' },
@@ -43,11 +71,15 @@ async function fetchDatasetPage (url, filter, from) {
       sort: [{ 'resourceTitleObject.default.keyword': 'asc' }, { _doc: 'asc' }]
     })
   }))
+  context.statusCode = response.status
   if (response.status !== statusCodes.ok) {
     await response.body?.cancel()
     throw new Error(`GeoNetwork search returned ${response.status}`)
   }
-  return parseDatasetPage(await response.json(), from)
+  context.stage = 'parse JSON'
+  const result = await response.json()
+  context.stage = 'validate response'
+  return parseDatasetPage(result, from)
 }
 
 function parseDatasetPage (result, from) {
