@@ -47,6 +47,8 @@ describe('#createUserSession', () => {
       email: 'user@example.com',
       displayName: 'User Name',
       loginHint: 'user@example.com',
+      roles: [],
+      claims: { oid: 'user-id', name: 'User Name', email: 'user@example.com', login_hint: 'user@example.com' },
       isAuthenticated: true,
       accessToken: 'access-token',
       refreshToken: 'refresh-token',
@@ -257,4 +259,29 @@ describe('#refreshTokenIfExpired', () => {
     expect(request.server.session.drop).toHaveBeenCalledWith('session-id')
     expect(request.sessionCookie.clear).toHaveBeenCalled()
   })
+})
+
+test.each([
+  [['Evidence.Reader', 'Other.Role'], ['Evidence.Reader', 'Other.Role']],
+  ['Evidence.Reader', []],
+  [undefined, []],
+  [[null, 1, 'Evidence.Reader'], ['Evidence.Reader']]
+])('copies only array role claims into the server session: %j', async (roles, expected) => {
+  const request = {
+    auth: { isAuthenticated: true, credentials: { expiresIn: 3600, claims: { oid: 'user', roles }, accessToken: 'access', refreshToken: 'refresh' } },
+    server: { session: { set: vi.fn() } }
+  }
+  expect((await createUserSession(request, 'session')).roles).toEqual(expected)
+})
+
+test('updates role membership from validated refreshed ID-token claims', async () => {
+  const request = { server: { session: { set: vi.fn() } }, logger: { info: vi.fn() } }
+  const refreshed = await updateUserSession(request, {
+    access_token: 'new-access',
+    id_token: 'validated-id-token',
+    expires_in: 3600,
+    claims: () => ({ roles: [] })
+  }, { roles: ['Evidence.Reader'], refreshToken: 'refresh' })
+  expect(refreshed.roles).toEqual([])
+  expect(refreshed.claims).toEqual({ roles: [] })
 })

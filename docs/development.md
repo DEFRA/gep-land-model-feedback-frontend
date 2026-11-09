@@ -58,6 +58,13 @@ Viewer implementation. Sessions and refresh tokens are held in the configured
 cache. Deployed environments use Cognito; local development uses Keycloak with
 the imported realm in `compose/keycloak`.
 
+The evidence page has a single Continue submit button. With JavaScript enabled,
+it submits selected files directly to CDP Uploader, or goes straight to Check your
+answers when the selection is empty (including after Clear files). Without
+JavaScript, a continue-without-files link provides the empty-selection route.
+Successful scan completion goes directly to Check your answers; rejected files
+return to the evidence page with errors, retaining any accepted attachments.
+
 Evidence goes directly to CDP Uploader. The frontend waits for completed scans,
 validates the result's session token, bucket and batch path, and stores only file
 metadata in the session. Removing an attachment removes its report reference,
@@ -65,7 +72,8 @@ not the S3 object. Configure storage retention separately for deployments.
 
 Submission sends the answer snapshot to GOV.UK Notify before showing confirmation.
 Reports remain session-scoped; there is no durable report store or external case
-system. File-download links in emails are placeholders.
+system. File-download links in emails use the authenticated evidence endpoint;
+see [evidence download configuration](configuration.md#evidence-downloads).
 
 ## External API logging
 
@@ -104,7 +112,7 @@ GeoNetwork list datasets failed: {"stage":"request","from":0,"name":"TypeError",
 All server-side external API operations use `logExternalCall` in the existing
 logging helper. This covers GeoNetwork searches (each page), CDP Uploader
 initiation and status checks, each Notify send attempt, OIDC discovery, code
-exchange and token refresh, and Cognito identity token requests. Cached discovery
+exchange and token refresh, Cognito identity token requests, and S3 evidence downloads. Cached discovery
 metadata and cached tokens do not produce external-call logs.
 
 At `LOG_LEVEL=info`, each call emits an outcome summary with `service`,

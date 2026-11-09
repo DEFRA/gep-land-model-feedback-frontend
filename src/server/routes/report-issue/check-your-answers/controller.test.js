@@ -73,7 +73,7 @@ test.each(['data', 'technical'])('%s review matches prototype rows with accessib
   expect($('form').attr('action')).toBe(reviewPath)
   expect($('form input[name="crumb"]').val()).toBeTruthy()
   const evidence = load((await visit('/report-issue/evidence')).payload)
-  expect(evidence('a.govuk-button').attr('href')).toBe(reviewPath)
+  expect(evidence('form[data-evidence-continue]').attr('data-evidence-continue')).toBe(reviewPath)
 })
 
 test.each([
@@ -128,7 +128,7 @@ test('Change Files returns to review without posting or persisting file contents
   const response = await visit(changing('/report-issue/evidence'))
   const $ = load(response.payload)
   expect($('.govuk-back-link').attr('href')).toBe(reviewPath)
-  expect($('a.govuk-button').attr('href')).toBe(reviewPath)
+  expect($('form[data-evidence-continue]').attr('data-evidence-continue')).toBe(reviewPath)
   expect($('form[enctype="multipart/form-data"]')).toHaveLength(1)
   expect(rows(await visit(reviewPath)).Files).toBe('No files added')
 })

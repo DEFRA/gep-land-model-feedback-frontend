@@ -8,6 +8,8 @@ const sessionCookieName = config.get('session.cookie.name')
  * @typedef {object} UserSession
  * @property {string} id
  * @property {string} [email]
+ * @property {AuthClaims} claims
+ * @property {string[]} roles
  * @property {string} displayName
  * @property {string} [loginHint]
  * @property {boolean} isAuthenticated
@@ -24,6 +26,7 @@ const sessionCookieName = config.get('session.cookie.name')
  * @property {string} [email]
  * @property {string} [preferred_username]
  * @property {string} [login_hint]
+ * @property {string[]} [roles]
  */
 
 /**
@@ -85,6 +88,8 @@ async function createUserSession (request, sessionId) {
     displayName: claims.name ?? '',
     email: claims.email ?? claims.preferred_username,
     loginHint: claims.login_hint,
+    roles: normaliseRoles(claims.roles),
+    claims: structuredClone(claims),
     isAuthenticated: request.auth.isAuthenticated,
     accessToken: credentials.accessToken,
     refreshToken: credentials.refreshToken,
@@ -100,7 +105,7 @@ async function createUserSession (request, sessionId) {
 /**
  * Update user session with a new token response.
  * @param {SessionRequest} request
- * @param {{access_token: string, refresh_token?: string, expires_in?: number}} refreshTokenResponse
+ * @param {{access_token: string, refresh_token?: string, expires_in?: number, id_token?: string, claims?: () => AuthClaims | undefined}} refreshTokenResponse
  * @param {UserSession} previousSession
  * @returns {Promise<UserSession>}
  */
@@ -113,8 +118,15 @@ async function updateUserSession (request, refreshTokenResponse, previousSession
   const expiresInMilliSeconds = expiresInSeconds * MILLISECONDS_PER_SECOND
   const expiresAt = addSeconds(new Date(), expiresInSeconds).toISOString()
 
+  const refreshedClaims = typeof refreshTokenResponse.claims === 'function' && refreshTokenResponse.id_token
+    ? refreshTokenResponse.claims() ?? {}
+    : undefined
+
   const session = {
     ...previousSession,
+    ...(refreshedClaims
+      ? { roles: normaliseRoles(refreshedClaims.roles), claims: structuredClone(refreshedClaims) }
+      : {}),
     accessToken: refreshTokenResponse.access_token,
     refreshToken: refreshTokenResponse.refresh_token ?? previousSession.refreshToken,
     expiresIn: expiresInMilliSeconds,
@@ -149,6 +161,10 @@ async function refreshTokenIfExpired (refreshToken, request, userSession) {
     await clearUserSession(request)
     throw error
   }
+}
+
+function normaliseRoles (roles) {
+  return Array.isArray(roles) ? roles.filter(role => typeof role === 'string') : []
 }
 
 export {

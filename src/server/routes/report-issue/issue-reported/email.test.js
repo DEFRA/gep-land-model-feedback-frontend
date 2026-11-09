@@ -13,7 +13,7 @@ const originalMailbox = config.get('supportMailboxAddress')
 const report = {
   id: '12345678-1234-4123-8123-123456789012',
   reference: '123456781234',
-  answers: { submitterEmail: 'reporter@example.com', files: [{ filename: 'evidence.png', s3Key: 'private-key' }, { filename: 'details.pdf' }] }
+  answers: { submitterEmail: 'reporter@example.com', files: [{ filename: 'evidence.png', s3Key: 'private-key', uploadId: '11111111-1111-4111-8111-111111111111', fileId: '22222222-2222-4222-8222-222222222222' }, { filename: 'details.pdf', uploadId: '11111111-1111-4111-8111-111111111111', fileId: '33333333-3333-4333-8333-333333333333' }] }
 }
 const rows = [{ label: 'Issue type', lines: ['Data issue'] }, { label: 'Description', lines: ['First line', 'Second line'] }, { label: 'Files', lines: ['evidence.png', 'details.pdf'] }]
 const logger = { info: vi.fn(), warn: vi.fn() }
@@ -32,7 +32,7 @@ afterEach(() => {
   config.set('supportMailboxAddress', originalMailbox)
 })
 
-test('uses the Notify SDK to send the reference, exact answer text and explicit file placeholders', async () => {
+test('uses the Notify SDK to send the reference, exact answer text and authenticated file links', async () => {
   expect(await sendIssueEmail(report, rows, logger)).toEqual({ id: 'notification-id', recipient: 'support@example.com' })
   expect(axios.create).toHaveBeenCalledWith({ timeout: 10000 })
   expect(transport).toHaveBeenCalledOnce()
@@ -47,8 +47,8 @@ test('uses the Notify SDK to send the reference, exact answer text and explicit 
         email_subject: 'New ATLAS report - 123456781234',
         reference: report.reference,
         submitter_email: 'reporter@example.com',
-        answers: 'Issue type:\nData issue\n\nDescription:\nFirst line\nSecond line\n\nFiles:\nevidence.png\ndetails.pdf',
-        file_downloads: 'evidence.png: Download link not yet available\ndetails.pdf: Download link not yet available'
+        answers: '## Issue type\nData issue\n\n## Description\nFirst line\nSecond line\n\n## Files\nevidence.png\ndetails.pdf',
+        file_downloads: `[evidence.png](${config.get('appBaseUrl')}/evidence/download/11111111-1111-4111-8111-111111111111/22222222-2222-4222-8222-222222222222)\n\n[details.pdf](${config.get('appBaseUrl')}/evidence/download/11111111-1111-4111-8111-111111111111/33333333-3333-4333-8333-333333333333)`
       }
     }
   })
@@ -123,4 +123,12 @@ test('rejects a response without a notification ID without pretending the email 
   transport.mockResolvedValue({ status: 201, data: {} })
   await expect(sendIssueEmail(report, rows, logger)).rejects.toThrow('could not be sent')
   expect(transport).toHaveBeenCalledOnce()
+})
+
+test('escapes filenames so they cannot replace the email download destination', async () => {
+  const file = { ...report.answers.files[0], filename: 'Evidence [map](https://untrusted.example)!.png' }
+  await sendIssueEmail({ ...report, answers: { ...report.answers, files: [file] } }, rows, logger)
+  const { file_downloads: links } = transport.mock.calls[0][0].data.personalisation
+  expect(links).toContain('Evidence \\[map\\]\\(https://untrusted.example\\)\\!.png')
+  expect(links).toContain(`](${config.get('appBaseUrl')}/evidence/download/${file.uploadId}/${file.fileId})`)
 })

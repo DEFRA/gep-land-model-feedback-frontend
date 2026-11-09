@@ -22,27 +22,30 @@
             <form action="{{ file.removeAction }}" method="post">
               <input type="hidden" name="crumb" value="{{ crumb }}">
               {% set removeLabel %}Remove<span class="govuk-visually-hidden"> {{ file.filename }}</span>{% endset %}
-              {{ govukButton({ html: removeLabel, classes: "govuk-button--secondary govuk-!-margin-bottom-0" }) }}
+              <button type="submit" class="govuk-link govuk-link--no-visited-state app-link-button">{{ removeLabel | safe }}</button>
             </form>
           {% endset %}
           {% set fileRows = fileRows.concat([[{ text: file.filename }, { text: "Uploaded" }, { html: removeForm }]]) %}
         {% endfor %}
         {{ govukTable({ head: [{ text: "File name" }, { text: "Status" }, { text: "Action" }], rows: fileRows }) }}
       {% endif %}
-      <form action="{{ action }}" method="post" enctype="multipart/form-data">
+      <form action="{{ action }}" method="post" enctype="multipart/form-data" data-evidence-continue="/report-issue/check-your-answers">
         {{ govukFileUpload({
           id: "evidence-files", name: "evidenceFiles",
           label: { text: "Upload files", classes: "govuk-label--m" },
-          hint: { text: "Choose one or more files, then select Upload files. Each file must be " + maxFileSizeMB + " MB or smaller. " + ("Allowed file types: " + allowedMimeTypes + ". " if allowedMimeTypes else "") + "You can continue without adding evidence." },
+          hint: { text: "Choose one or more files, then select Continue. Each file must be " + maxFileSizeMB + " MB or smaller. " + ("Allowed file types: " + allowedMimeTypes + ". " if allowedMimeTypes else "") + "You can continue without adding evidence." },
           attributes: { accept: allowedMimeTypes } if allowedMimeTypes else {},
           chooseFilesButtonText: "Choose files",
           dropInstructionText: "or drop files",
           noFileChosenText: "No files chosen",
           errorMessage: fileError, javascript: true, multiple: true
         }) }}
-        {{ govukButton({ text: "Upload files", classes: "govuk-button--secondary" }) }}
+        <p class="govuk-body"><a class="govuk-link govuk-!-display-none" href="#evidence-files" data-clear-files="evidenceFiles">Clear files</a></p>
+        {{ govukButton({ text: "Continue" }) }}
       </form>
-      {{ govukButton({ text: "Continue", href: "/report-issue/check-your-answers" }) }}
+      <noscript>
+        <p class="govuk-body">If you have not selected any files, <a class="govuk-link" href="/report-issue/check-your-answers">continue without files</a>.</p>
+      </noscript>
     </div>
   </div>
 {% endblock %}
