@@ -15,24 +15,12 @@ const RETRY_BACKOFF_MULTIPLIER = 2
 
 const retryableCodes = new Set(['ECONNRESET', 'ECONNREFUSED', 'ECONNABORTED', 'ETIMEDOUT', 'EAI_AGAIN', 'ENOTFOUND', 'EPIPE', 'ERR_NETWORK'])
 
-const notifyFailureReasons = new Map([
-  ['Error: Your system clock must be accurate to within 30 seconds', 'clock_mismatch'],
-  ['Invalid token: API key revoked', 'api_key_revoked'],
-  ['Invalid token: API key not found', 'api_key_invalid'],
-  ['Invalid token: signature, api token not found', 'api_key_invalid'],
-  ["Can't send to this recipient using a team-only API key", 'recipient_restricted'],
-  ["Can't send to this recipient when service is in trial mode", 'recipient_restricted'],
-  ["Can't send to this recipient when service is in trial mode - see https://www.notifications.service.gov.uk/trial-mode", 'recipient_restricted']
-])
-
-function failureDiagnostics (error) {
+function notifyErrorDetails (error) {
   const errors = error.response?.data?.errors
-  if (!Array.isArray(errors)) {
-    return {}
-  }
-  // Emit only fixed categories; upstream messages can contain private values.
-  const failureReason = errors.map(entry => notifyFailureReasons.get(entry?.message)).find(Boolean)
-  return failureReason ? { failureReason } : {}
+  const notifyErrors = Array.isArray(errors)
+    ? errors.map(entry => entry?.message).filter(message => typeof message === 'string')
+    : []
+  return notifyErrors.length ? { notifyErrors } : {}
 }
 
 function isTemporaryFailure (error) {
@@ -87,8 +75,8 @@ export async function sendEmail ({ recipient, reference, personalisation, recipi
     } catch (error) {
       const wait = retryDelay(error, attempt)
       const retrying = attempt < MAX_ATTEMPTS && wait !== null
-      // SDK errors can include API keys, recipient addresses and submitted answers.
-      logger.warn({ ...context, attempt, statusCode: error.response?.status, ...failureDiagnostics(error), retrying, retryDelayMs: retrying ? wait : undefined }, 'Issue email request failed')
+      // Log Notify’s messages without the SDK request, headers or personalisation.
+      logger.warn({ ...context, attempt, statusCode: error.response?.status, ...notifyErrorDetails(error), retrying, retryDelayMs: retrying ? wait : undefined }, 'Issue email request failed')
       if (!retrying) {
         throw new Error('Issue email could not be sent')
       }
