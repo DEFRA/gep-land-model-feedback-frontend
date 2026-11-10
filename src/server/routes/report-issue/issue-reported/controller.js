@@ -58,7 +58,7 @@ export const issueReportedController = {
       pageTitle: 'Issue reported',
       restartReportFormId: 'report-restart-form',
       reference: reportedIssue.reference,
-      supportMailboxAddress: reportedIssue.notification.recipient
+      submitterEmail: reportedIssue.notification.submitterCopy?.recipient
     })
   }
 }

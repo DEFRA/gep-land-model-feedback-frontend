@@ -11,8 +11,8 @@
         Your reference number<br><strong>{{ reference }}</strong>
       {% endset %}
       {{ govukPanel({ titleText: pageTitle, html: referenceHtml }) }}
-      {% if supportMailboxAddress %}
-        <p class="govuk-body">We have sent a confirmation email to <a class="govuk-link" href="mailto:{{ supportMailboxAddress }}">{{ supportMailboxAddress }}</a>.</p>
+      {% if submitterEmail %}
+        <p class="govuk-body">We have sent a confirmation email to <a class="govuk-link" href="mailto:{{ submitterEmail }}">{{ submitterEmail }}</a>.</p>
       {% endif %}
       <h2 class="govuk-heading-m">What happens next</h2>
       <p class="govuk-body">We’ve sent your case to be triaged. You will be notified of any updates.</p>

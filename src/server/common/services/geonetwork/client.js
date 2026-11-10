@@ -63,28 +63,50 @@ async function fetchDatasetPage (url, filter, from, context) {
   context.stage = 'request'
   context.from = from
   delete context.statusCode
+  const payload = {
+    size: MAX_RESULTS,
+    from,
+    track_total_hits: true,
+    _source: ['resourceTitleObject.default'],
+    query: { bool: { filter } },
+    sort: [{ 'resourceTitleObject.default.keyword': 'asc' }, { _doc: 'asc' }]
+  }
+  logDatasetDebug({ from, payload }, 'GeoNetwork dataset search request')
   const response = await logExternalCall('GeoNetwork', 'list datasets', () => fetch(url, {
     method: 'POST',
     headers: { 'content-type': 'application/json', accept: 'application/json' },
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    body: JSON.stringify({
-      size: MAX_RESULTS,
-      from,
-      track_total_hits: true,
-      _source: ['resourceTitleObject.default'],
-      query: { bool: { filter } },
-      sort: [{ 'resourceTitleObject.default.keyword': 'asc' }, { _doc: 'asc' }]
-    })
+    body: JSON.stringify(payload)
   }))
   context.statusCode = response.status
+  logDatasetDebug({ from, statusCode: response.status }, 'GeoNetwork dataset search status')
   if (response.status !== statusCodes.ok) {
-    await response.body?.cancel()
+    if (logger.isLevelEnabled('debug')) {
+      try {
+        const errorResponse = await response.json()
+        logDatasetDebug({ from, statusCode: response.status, response: errorResponse }, 'GeoNetwork dataset search response')
+      } catch {
+        logDatasetDebug({ from, statusCode: response.status }, 'GeoNetwork dataset search response is not valid JSON')
+      }
+    }
+    if (!response.bodyUsed) {
+      await response.body?.cancel()
+    }
     throw new Error(`GeoNetwork search returned ${response.status}`)
   }
   context.stage = 'parse JSON'
   const result = await response.json()
+  logDatasetDebug({ from, statusCode: response.status, response: result }, 'GeoNetwork dataset search response')
   context.stage = 'validate response'
   return parseDatasetPage(result, from)
+}
+
+function logDatasetDebug (details, message) {
+  if (!logger.isLevelEnabled('debug')) {
+    return
+  }
+  // Keep diagnostics in the message too: hosting pipelines can drop custom fields.
+  logger.debug(details, `${message}: ${JSON.stringify(details)}`)
 }
 
 function parseDatasetPage (result, from) {

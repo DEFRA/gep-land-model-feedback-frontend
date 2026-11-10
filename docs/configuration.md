@@ -72,6 +72,12 @@ GEONETWORK_DATASET_CATEGORIES=
 GEONETWORK_DATASET_KEYWORDS="Protected sites"
 ```
 
+Set `LOG_LEVEL=debug` (with `LOG_ENABLED=true`) and restart or redeploy to log each
+GeoNetwork search page's request payload, HTTP status code and full response JSON.
+These diagnostics use the application logger, with JSON details also included in
+the message for deployment log viewers that omit custom fields. JSON error
+responses are logged too; non-JSON errors retain the HTTP status diagnostic.
+
 ## Evidence uploads
 
 | Variable | Local default | Purpose |

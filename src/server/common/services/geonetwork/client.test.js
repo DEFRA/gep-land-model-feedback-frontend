@@ -1,7 +1,7 @@
 import { listDatasets } from './client.js'
 import { config } from '#/config/config.js'
 
-const { logger } = vi.hoisted(() => ({ logger: { error: vi.fn() } }))
+const { logger } = vi.hoisted(() => ({ logger: { error: vi.fn(), debug: vi.fn(), isLevelEnabled: vi.fn() } }))
 vi.mock('../../helpers/logging/logger.js', () => ({
   createLogger: () => logger,
   logExternalCall: (_service, _operation, call) => call()
@@ -20,6 +20,8 @@ afterEach(() => {
 })
 beforeEach(() => {
   logger.error.mockClear()
+  logger.debug.mockClear()
+  logger.isLevelEnabled.mockReturnValue(false)
   consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
   request.mockReset().mockResolvedValue(response())
   vi.stubGlobal('fetch', request)
@@ -75,6 +77,52 @@ test('requires both category and keyword filters on every page when both are con
 test('returns an empty list for no matches', async () => {
   request.mockResolvedValueOnce(response([]))
   expect(await listDatasets()).toEqual([])
+})
+test.each([{ hits: [hit] }, { hits: [] }])('logs request, status and full JSON at debug level for $hits', async ({ hits }) => {
+  logger.isLevelEnabled.mockReturnValue(true)
+  config.set('geonetwork.datasetKeywords', ['Protected sites'])
+  const result = { hits: { hits, total: hits.length } }
+  request.mockResolvedValueOnce({ status: 200, json: vi.fn().mockResolvedValue(result) })
+  await listDatasets()
+  const payload = JSON.parse(request.mock.calls[0][1].body)
+  const entries = [
+    ['GeoNetwork dataset search request', { from: 0, payload }],
+    ['GeoNetwork dataset search status', { from: 0, statusCode: 200 }],
+    ['GeoNetwork dataset search response', { from: 0, statusCode: 200, response: result }]
+  ]
+  expect(logger.debug).toHaveBeenCalledTimes(3)
+  entries.forEach(([message, details], index) => {
+    expect(logger.debug).toHaveBeenNthCalledWith(index + 1, details, `${message}: ${JSON.stringify(details)}`)
+  })
+})
+test('does not emit payload diagnostics or read HTTP error JSON when debug is disabled', async () => {
+  const json = vi.fn()
+  request.mockResolvedValueOnce({ status: 403, json })
+  await expect(listDatasets()).rejects.toThrow('returned 403')
+  expect(logger.debug).not.toHaveBeenCalled()
+  expect(json).not.toHaveBeenCalled()
+})
+test('logs JSON error responses at debug level and preserves the HTTP failure', async () => {
+  logger.isLevelEnabled.mockReturnValue(true)
+  const result = { error: { reason: 'Invalid query' }, status: 400 }
+  const json = vi.fn().mockResolvedValue(result)
+  request.mockResolvedValueOnce({ status: 400, json, bodyUsed: true })
+  await expect(listDatasets()).rejects.toThrow('returned 400')
+  expect(json).toHaveBeenCalledOnce()
+  expect(logger.debug).toHaveBeenLastCalledWith(
+    { from: 0, statusCode: 400, response: result },
+    expect.stringContaining(JSON.stringify(result))
+  )
+})
+test('retains the HTTP status for non-JSON error responses at debug level', async () => {
+  logger.isLevelEnabled.mockReturnValue(true)
+  request.mockResolvedValueOnce({ status: 502, json: vi.fn().mockRejectedValue(new SyntaxError('private HTML response')) })
+  await expect(listDatasets()).rejects.toThrow('returned 502')
+  expect(logger.debug).toHaveBeenLastCalledWith(
+    { from: 0, statusCode: 502 },
+    expect.stringContaining('response is not valid JSON')
+  )
+  expect(JSON.stringify(logger.debug.mock.calls)).not.toContain('private HTML response')
 })
 test('rejects failed requests and consumes the response', async () => {
   const cancel = vi.fn()
