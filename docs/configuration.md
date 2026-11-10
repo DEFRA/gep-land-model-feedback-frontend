@@ -57,6 +57,21 @@ to `http://localhost:8080/geonetwork/srv/api`.
 names; a dataset matching any name is included. Leave it empty for all categories.
 Use `feedback-test` to show the two matching local sample datasets.
 
+`GEONETWORK_DATASET_KEYWORDS` accepts comma-separated metadata keyword labels.
+Labels match exactly and are case-sensitive, using the record's default language
+(`tag.default` in GeoNetwork). A dataset matching any listed keyword is included.
+Leading and trailing whitespace is ignored and blank entries are skipped for
+both settings. Leave either setting empty to omit that restriction. If both are
+set, a dataset must match at least one category **and** at least one keyword.
+
+To include only datasets with the keyword `Protected sites`, set the following
+in `.env` and restart the frontend:
+
+```dotenv
+GEONETWORK_DATASET_CATEGORIES=
+GEONETWORK_DATASET_KEYWORDS="Protected sites"
+```
+
 ## Evidence uploads
 
 | Variable | Local default | Purpose |

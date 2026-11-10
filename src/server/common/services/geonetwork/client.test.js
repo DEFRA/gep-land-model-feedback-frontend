@@ -11,10 +11,12 @@ let consoleError
 const hit = { _id: 'dataset-1', _source: { resourceTitleObject: { default: 'Example dataset' } } }
 const response = (hits = [hit], total = hits.length) => ({ status: 200, json: async () => ({ hits: { hits, total } }) })
 const originalCategories = config.get('geonetwork.datasetCategories')
+const originalKeywords = config.get('geonetwork.datasetKeywords')
 afterEach(() => {
   consoleError.mockRestore()
   vi.unstubAllGlobals()
   config.set('geonetwork.datasetCategories', originalCategories)
+  config.set('geonetwork.datasetKeywords', originalKeywords)
 })
 beforeEach(() => {
   logger.error.mockClear()
@@ -22,6 +24,7 @@ beforeEach(() => {
   request.mockReset().mockResolvedValue(response())
   vi.stubGlobal('fetch', request)
   config.set('geonetwork.datasetCategories', [])
+  config.set('geonetwork.datasetKeywords', [])
 })
 test('requests only names and returns stable IDs and names', async () => {
   expect(await listDatasets()).toEqual([{ id: 'dataset-1', title: 'Example dataset' }])
@@ -38,14 +41,35 @@ test('includes any matching category and never applies viewer category exclusion
   expect(body.query.bool.filter).toContainEqual({ terms: { 'cat.keyword': ['datasets', 'reference'] } })
   expect(body.query.bool.must_not).toBeUndefined()
 })
-test('retrieves every page using the same inclusion filter', async () => {
+test('includes any exact keyword label without restricting categories', async () => {
+  config.set('geonetwork.datasetKeywords', [' Protected sites ', '', 'Woodland', 'Protected sites'])
+  await listDatasets()
+  const body = JSON.parse(request.mock.calls[0][1].body)
+  expect(body.query.bool.filter).toEqual([
+    { term: { isTemplate: 'n' } },
+    { terms: { 'tag.default': ['Protected sites', 'Woodland'] } }
+  ])
+})
+test('ignores blank category and keyword entries', async () => {
+  config.set('geonetwork.datasetCategories', ['', '  '])
+  config.set('geonetwork.datasetKeywords', ['', '  '])
+  await listDatasets()
+  const body = JSON.parse(request.mock.calls[0][1].body)
+  expect(body.query.bool.filter).toEqual([{ term: { isTemplate: 'n' } }])
+})
+test('requires both category and keyword filters on every page when both are configured', async () => {
   config.set('geonetwork.datasetCategories', ['datasets'])
+  config.set('geonetwork.datasetKeywords', ['Protected sites'])
   request.mockResolvedValueOnce(response([hit], { value: 2, relation: 'eq' }))
   request.mockResolvedValueOnce(response([{ ...hit, _id: 'dataset-2' }], 2))
   expect(await listDatasets()).toHaveLength(2)
   expect(request.mock.calls.map(([, options]) => JSON.parse(options.body).from)).toEqual([0, 1])
   for (const [, options] of request.mock.calls) {
-    expect(JSON.parse(options.body).query.bool.filter).toContainEqual({ terms: { 'cat.keyword': ['datasets'] } })
+    expect(JSON.parse(options.body).query.bool.filter).toEqual([
+      { term: { isTemplate: 'n' } },
+      { terms: { 'cat.keyword': ['datasets'] } },
+      { terms: { 'tag.default': ['Protected sites'] } }
+    ])
   }
 })
 test('returns an empty list for no matches', async () => {
