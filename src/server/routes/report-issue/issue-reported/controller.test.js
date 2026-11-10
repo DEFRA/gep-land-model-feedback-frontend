@@ -70,9 +70,7 @@ test.each(['data', 'technical'])('%s Submit creates a UUID receipt and displays 
   expect($('.govuk-panel__body').text()).toContain('Your reference number')
   expect($('.govuk-panel__body strong').text()).toBe(receipt.reference)
   expect($('h2').text()).toBe('What happens next')
-  expect($('a[href="mailto:reporter@example.com"]').text()).toBe('reporter@example.com')
-  expect($('a[href="mailto:atlas-support@example.com"]')).toHaveLength(0)
-  expect($('a[href^="mailto:"]').closest('p').text()).toBe('We have sent a confirmation email to reporter@example.com.')
+  expect($('a[href^="mailto:"]')).toHaveLength(0)
   expect($('h2').prev('p').text()).toBe('We have sent a confirmation email to reporter@example.com.')
   expect($('h2').next('p').text()).toBe('We’ve sent your case to be triaged. You will be notified of any updates.')
   expect($('.govuk-back-link')).toHaveLength(0)
@@ -111,9 +109,9 @@ test('confirmation retains the actual recipient even if configuration subsequent
   await start('technical')
   await submit(reviewPath)
   config.set('supportMailboxAddress', 'another-support@example.com')
-  expect(load((await visit(reportedPath)).payload)('a[href="mailto:reporter@example.com"]')).toHaveLength(1)
+  expect(load((await visit(reportedPath)).payload)('h2').prev('p').text()).toBe('We have sent a confirmation email to reporter@example.com.')
   config.set('supportMailboxAddress', null)
-  expect(load((await visit(reportedPath)).payload)('a[href="mailto:reporter@example.com"]')).toHaveLength(1)
+  expect(load((await visit(reportedPath)).payload)('h2').prev('p').text()).toBe('We have sent a confirmation email to reporter@example.com.')
 })
 
 test('confirmation omits the email sentence when no submitter copy was sent', async () => {
