@@ -83,8 +83,8 @@ async function fetchDatasetPage (url, filter, from, context) {
   if (response.status !== statusCodes.ok) {
     if (logger.isLevelEnabled('debug')) {
       try {
-        const result = await response.json()
-        logDatasetDebug({ from, statusCode: response.status, response: result }, 'GeoNetwork dataset search response')
+        const errorResponse = await response.json()
+        logDatasetDebug({ from, statusCode: response.status, response: errorResponse }, 'GeoNetwork dataset search response')
       } catch {
         logDatasetDebug({ from, statusCode: response.status }, 'GeoNetwork dataset search response is not valid JSON')
       }
