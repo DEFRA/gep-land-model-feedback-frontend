@@ -6,7 +6,7 @@ export const MAX_RESULTS = 500
 const REQUEST_TIMEOUT_MS = 10000
 const logger = createLogger()
 
-/** List dataset IDs and names for the selector, including any configured category. */
+/** List dataset IDs and names for the selector, applying configured categories and keywords. */
 export async function listDatasets () {
   const startedAt = performance.now()
   const context = { stage: 'request' }
@@ -32,9 +32,14 @@ export async function listDatasets () {
 
 async function loadDatasets (context) {
   const categories = [...new Set(config.get('geonetwork.datasetCategories').map(value => value.trim()).filter(Boolean))]
+  const keywords = [...new Set(config.get('geonetwork.datasetKeywords').map(value => value.trim()).filter(Boolean))]
   const filter = [{ term: { isTemplate: 'n' } }]
   if (categories.length) {
     filter.push({ terms: { 'cat.keyword': categories } })
+  }
+  if (keywords.length) {
+    // tag.default is already a keyword field in GeoNetwork's index mapping.
+    filter.push({ terms: { 'tag.default': keywords } })
   }
   const url = `${config.get('geonetwork.apiUrl').replace(/\/$/, '')}/search/records/_search`
   const datasets = []

@@ -461,6 +461,12 @@ export const config = convict({
       format: Array,
       default: [],
       env: 'GEONETWORK_DATASET_CATEGORIES'
+    },
+    datasetKeywords: {
+      doc: 'Comma-separated metadata keyword labels; include exact matches from any in the record default language, or leave empty for all keywords',
+      format: Array,
+      default: [],
+      env: 'GEONETWORK_DATASET_KEYWORDS'
     }
   },
   googleAnalytics: {
