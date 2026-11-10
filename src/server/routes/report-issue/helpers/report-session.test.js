@@ -5,7 +5,7 @@ function session (values = {}) {
   return { store, yar: { get: key => store.get(key) ?? null, set: (key, value) => store.set(key, value), clear: key => store.delete(key), flash: vi.fn() } }
 }
 
-test('completion removes answers from both workflows, upload references and receipt snapshots without signing out', () => {
+test('completion retains notification recipients while removing answers and upload references without signing out', () => {
   const answers = {
     issueType: 'data',
     dataset: 'other',
@@ -21,11 +21,11 @@ test('completion removes answers from both workflows, upload references and rece
     evidenceUpload: { token: 'private-token' }
   }
   const request = session({ ...answers, 'oidc-auth': { verifier: 'login-session' }, reportJourney: { id: 'journey-one', completed: false } })
-  completeReport(request, { id: 'report-id', reference: 'ABC123', answers, notification: { id: 'notify-id', recipient: 'support@example.com', submitterCopy: { recipient: 'private@example.com' } } })
+  completeReport(request, { id: 'report-id', reference: 'ABC123', answers, notification: { id: 'notify-id', recipient: 'support@example.com', submitterCopy: { id: 'copy-id', recipient: 'reporter@example.com', body: 'Private email content' } } })
   for (const key of Object.keys(answers)) {
     expect(request.store.has(key)).toBe(false)
   }
-  expect(request.yar.get('reportedIssue')).toEqual({ id: 'report-id', reference: 'ABC123', completed: true, notification: { id: 'notify-id', recipient: 'support@example.com' } })
+  expect(request.yar.get('reportedIssue')).toEqual({ id: 'report-id', reference: 'ABC123', completed: true, notification: { id: 'notify-id', recipient: 'support@example.com', submitterCopy: { id: 'copy-id', recipient: 'reporter@example.com' } } })
   expect(request.yar.get('reportJourney')).toEqual({ id: 'journey-one', completed: true })
   expect(request.yar.get('oidc-auth')).toEqual({ verifier: 'login-session' })
   expect(request.yar.flash).toHaveBeenCalledWith('evidenceErrors')

@@ -45,7 +45,16 @@ export function completeReport (request, report) {
     id: report.id,
     reference: report.reference,
     completed: true,
-    notification: { id: report.notification.id, recipient: report.notification.recipient }
+    notification: {
+      id: report.notification.id,
+      recipient: report.notification.recipient,
+      ...(report.notification.submitterCopy && {
+        submitterCopy: {
+          id: report.notification.submitterCopy.id,
+          recipient: report.notification.submitterCopy.recipient
+        }
+      })
+    }
   })
   const journey = request.yar.get(JOURNEY_SESSION_KEY)
   request.yar.set(JOURNEY_SESSION_KEY, { id: journey?.id ?? randomUUID(), completed: true })
